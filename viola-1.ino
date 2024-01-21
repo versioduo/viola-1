@@ -817,73 +817,73 @@ private:
 
   void exportInput(JsonObject json) override {
     {
-      JsonObject jsonPitchbend = json.createNestedObject("pitchbend");
+      JsonObject jsonPitchbend = json["pitchbend"].to<JsonObject>();
       jsonPitchbend["value"]   = (int16_t)(Finger.pitchbend * (Finger.pitchbend < 0 ? 8192.f : 8191.f));
     }
 
     {
-      JsonObject jsonChromatic = json.createNestedObject("chromatic");
+      JsonObject jsonChromatic = json["chromatic"].to<JsonObject>();
       jsonChromatic["start"]   = Config.notes.start;
       jsonChromatic["count"]   = Config.notes.count;
     }
 
     {
-      JsonObject jsonAftertouch = json.createNestedObject("aftertouch");
+      JsonObject jsonAftertouch = json["aftertouch"].to<JsonObject>();
       jsonAftertouch["value"]   = Velocity.getAftertouch();
     }
 
-    JsonArray jsonControllers = json.createNestedArray("controllers");
+    JsonArray jsonControllers = json["controllers"].to<JsonArray>();
     {
-      JsonObject jsonController = jsonControllers.createNestedObject();
+      JsonObject jsonController = jsonControllers.add<JsonObject>();
       jsonController["name"]    = "Volume";
       jsonController["number"]  = (uint8_t)CC::Volume;
       jsonController["value"]   = Velocity.getVolume();
     }
     {
-      JsonObject jsonController = jsonControllers.createNestedObject();
+      JsonObject jsonController = jsonControllers.add<JsonObject>();
       jsonController["name"]    = "Finger Speed";
       jsonController["number"]  = (uint8_t)CC::FingerSpeed;
       jsonController["value"]   = (uint8_t)(Finger.speedMax * 127.f);
     }
     {
-      JsonObject jsonController = jsonControllers.createNestedObject();
+      JsonObject jsonController = jsonControllers.add<JsonObject>();
       jsonController["name"]    = "Finger Pressure";
       jsonController["number"]  = (uint8_t)CC::FingerPressure;
       jsonController["value"]   = (uint8_t)(Finger.pressureMax * 127.f);
     }
     {
-      JsonObject jsonController = jsonControllers.createNestedObject();
+      JsonObject jsonController = jsonControllers.add<JsonObject>();
       jsonController["name"]    = "Vibrato Rate";
       jsonController["number"]  = (uint8_t)CC::VibratoRate;
       jsonController["value"]   = (uint8_t)(Finger.vibrato.rate * 127.f);
     }
     {
-      JsonObject jsonController = jsonControllers.createNestedObject();
+      JsonObject jsonController = jsonControllers.add<JsonObject>();
       jsonController["name"]    = "Vibrato Depth";
       jsonController["number"]  = (uint8_t)CC::VibratoDepth;
       jsonController["value"]   = (uint8_t)(Finger.vibrato.depth * 127.f);
     }
     {
-      JsonObject jsonController = jsonControllers.createNestedObject();
+      JsonObject jsonController = jsonControllers.add<JsonObject>();
       jsonController["name"]    = "Bow Speed";
       jsonController["number"]  = (uint8_t)CC::BowSpeed;
       jsonController["value"]   = (uint8_t)(Bow.rotationMax * 127.f);
     }
     {
-      JsonObject jsonController = jsonControllers.createNestedObject();
+      JsonObject jsonController = jsonControllers.add<JsonObject>();
       jsonController["name"]    = "Bow Pressure";
       jsonController["number"]  = (uint8_t)CC::BowPressure;
       jsonController["value"]   = (uint8_t)(Bow.pressureMax * 127.f);
     }
     {
-      JsonObject jsonController = jsonControllers.createNestedObject();
+      JsonObject jsonController = jsonControllers.add<JsonObject>();
       jsonController["name"]    = "Bow Reverse";
       jsonController["type"]    = "toggle";
       jsonController["number"]  = (uint8_t)CC::BowReverse;
       jsonController["value"]   = (uint8_t)(Bow.reverse ? 127 : 0);
     }
     {
-      JsonObject jsonController = jsonControllers.createNestedObject();
+      JsonObject jsonController = jsonControllers.add<JsonObject>();
       jsonController["name"]    = "Bow Turn";
       jsonController["type"]    = "toggle";
       jsonController["number"]  = (uint8_t)CC::BowTurn;
@@ -893,7 +893,7 @@ private:
 
   void exportSettings(JsonArray json) override {
     {
-      JsonObject setting = json.createNestedObject();
+      JsonObject setting = json.add<JsonObject>();
       setting["type"]    = "note";
       setting["title"]   = "Notes";
       setting["label"]   = "Start";
@@ -901,7 +901,7 @@ private:
       setting["path"]    = "notes/start";
     }
     {
-      JsonObject setting = json.createNestedObject();
+      JsonObject setting = json.add<JsonObject>();
       setting["type"]    = "number";
       setting["label"]   = "Count";
       setting["min"]     = 1;
@@ -911,7 +911,7 @@ private:
     }
 
     {
-      JsonObject setting = json.createNestedObject();
+      JsonObject setting = json.add<JsonObject>();
       setting["type"]    = "number";
 
       setting["title"]   = "Bow";
@@ -923,7 +923,7 @@ private:
       setting["path"]    = "bow/home";
     }
     {
-      JsonObject setting = json.createNestedObject();
+      JsonObject setting = json.add<JsonObject>();
       setting["type"]    = "number";
 
       setting["label"]   = "Minimum";
@@ -934,7 +934,7 @@ private:
       setting["path"]    = "bow/min";
     }
     {
-      JsonObject setting = json.createNestedObject();
+      JsonObject setting = json.add<JsonObject>();
       setting["type"]    = "number";
 
       setting["label"]   = "Maximum";
@@ -946,7 +946,7 @@ private:
     }
 
     {
-      JsonObject setting = json.createNestedObject();
+      JsonObject setting = json.add<JsonObject>();
       setting["type"]    = "number";
 
       setting["title"]   = "String";
@@ -958,7 +958,7 @@ private:
       setting["path"]    = "string/length";
     }
     {
-      JsonObject setting = json.createNestedObject();
+      JsonObject setting = json.add<JsonObject>();
       setting["type"]    = "number";
 
       setting["label"]   = "Home";
@@ -970,7 +970,7 @@ private:
     }
 
     {
-      JsonObject setting = json.createNestedObject();
+      JsonObject setting = json.add<JsonObject>();
       setting["type"]    = "number";
 
       setting["title"]   = "Finger";
@@ -982,13 +982,13 @@ private:
   }
 
   void exportConfiguration(JsonObject json) override {
-    JsonObject jsonNotes = json.createNestedObject("notes");
+    JsonObject jsonNotes = json["notes"].to<JsonObject>();
     jsonNotes["#start"]  = "First note";
     jsonNotes["start"]   = Config.notes.start;
     jsonNotes["#count"]  = "Total number of notes ";
     jsonNotes["count"]   = Config.notes.count;
 
-    JsonObject jsonBow = json.createNestedObject("bow");
+    JsonObject jsonBow = json["bow"].to<JsonObject>();
     jsonBow["#home"]   = "Offset of home position in millimeters";
     jsonBow["home"]    = serialized(String(Config.bow.home, 1));
     jsonBow["#min"]    = "Offset for velocity 1 in millimeters";
@@ -996,13 +996,13 @@ private:
     jsonBow["#max"]    = "Offset for velocity 127 in millimeters";
     jsonBow["max"]     = serialized(String(Config.bow.max, 1));
 
-    JsonObject jsonString = json.createNestedObject("string");
+    JsonObject jsonString = json["string"].to<JsonObject>();
     jsonString["#length"] = "Total string length in millimeters";
     jsonString["length"]  = serialized(String(Config.string.length, 1));
     jsonString["#home"]   = "Offset of first note in millimeters";
     jsonString["home"]    = serialized(String(Config.string.home, 1));
 
-    JsonObject jsonFinger   = json.createNestedObject("finger");
+    JsonObject jsonFinger   = json["finger"].to<JsonObject>();
     jsonFinger["#pressure"] = "Additional steps to increase the finger pressure";
     jsonFinger["pressure"]  = Config.finger.pressure;
   }
@@ -1110,20 +1110,20 @@ private:
 
   void exportSystem(JsonObject json) override {
     {
-      JsonObject jsonPower       = json.createNestedObject("power");
+      JsonObject jsonPower       = json["power"].to<JsonObject>();
       jsonPower["voltage"]       = serialized(String(Power.getVoltage(), 1));
       jsonPower["interruptions"] = Power.getInterruptions();
     }
     {
-      JsonObject jsonBow        = json.createNestedObject("bow");
-      JsonObject jsonPressure   = jsonBow.createNestedObject("pressure");
+      JsonObject jsonBow        = json["bow"].to<JsonObject>();
+      JsonObject jsonPressure   = jsonBow["pressure"].to<JsonObject>();
       jsonPressure["posititon"] = serialized(String(Steppers[Stepper::BowPressure].getPosition() / 200.f * 8.f, 1));
     }
     {
-      JsonObject jsonFinger   = json.createNestedObject("finger");
+      JsonObject jsonFinger   = json["finger"].to<JsonObject>();
       jsonFinger["posititon"] = serialized(String(Steppers[Stepper::Finger].getPosition() / 200.f * 8.f, 1));
 
-      JsonObject jsonPressure   = jsonFinger.createNestedObject("pressure");
+      JsonObject jsonPressure   = jsonFinger["pressure"].to<JsonObject>();
       jsonPressure["posititon"] = (uint32_t)Steppers[Stepper::FingerPressure].getPosition();
     }
 
@@ -1221,7 +1221,7 @@ private:
 } MIDIFile;
 
 void Device::exportSystemMIDIFile(JsonObject json) {
-  JsonObject jsonTrack = json.createNestedObject("track");
+  JsonObject jsonTrack = json["track"].to<JsonObject>();
   char s[128];
   if (MIDIFile.copyTag(V2MIDI::File::Event::Meta::Title, s, sizeof(s)) > 0)
     jsonTrack["title"] = s;
