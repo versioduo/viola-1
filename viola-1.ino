@@ -1,6 +1,3 @@
-// © Kay Sievers <kay@versioduo.com>, 2020-2022
-// SPDX-License-Identifier: Apache-2.0
-
 #include "MIDISong.h"
 #include <V2Base.h>
 #include <V2Buttons.h>
@@ -15,13 +12,13 @@
 
 V2DEVICE_METADATA("com.versioduo.viola-1", 32, "versioduo:samd:step");
 
-static constexpr uint8_t notesMax{20};
-static constexpr uint8_t nSteppers{4};
-static V2LED::WS2812 LED(nSteppers + 2, PIN_LED_WS2812, &sercom2, SPI_PAD_0_SCK_1, PIO_SERCOM);
-static V2Link::Port Plug(&SerialPlug);
-static V2Link::Port Socket(&SerialSocket);
+static constexpr uint8_t       notesMax{20};
+static constexpr uint8_t       nSteppers{4};
+static V2LED::WS2812           LED(nSteppers + 2, PIN_LED_WS2812, &sercom2, SPI_PAD_0_SCK_1, PIO_SERCOM);
+static V2Link::Port            Plug(&SerialPlug);
+static V2Link::Port            Socket(&SerialSocket);
 static V2Base::Timer::Periodic Timer(2, 200000);
-static V2Base::Analog::ADC ADC(V2Base::Analog::ADC::getID(PIN_VOLTAGE_SENSE));
+static V2Base::Analog::ADC     ADC(V2Base::Analog::ADC::getID(PIN_VOLTAGE_SENSE));
 
 // The button switches the state with a multi-click long-press.
 static class Manual {
@@ -169,8 +166,8 @@ private:
     }
 
     // The number of green LEDs shows the voltage.
-    float fraction = voltage / (float)config.max;
-    uint8_t n      = ceil((float)nSteppers * fraction);
+    float   fraction = voltage / (float)config.max;
+    uint8_t n        = ceil((float)nSteppers * fraction);
     LED.splashHSV(0.5, n, V2Color::Green, 1, 0.5);
   }
 } Power;
@@ -204,9 +201,7 @@ static constexpr struct Configuration {
   } finger;
 } ConfigurationDefault;
 
-static struct Configuration Config {
-  ConfigurationDefault
-};
+static struct Configuration Config{ConfigurationDefault};
 
 // Calculate the effective velocity depending on the note velocity, aftertouch /
 // pressure, and the volume controller.
@@ -260,7 +255,7 @@ private:
   uint8_t _volume{100};
   uint8_t _velocity{};
   uint8_t _aftertouch{};
-  float _fraction{};
+  float   _fraction{};
 
   void update() {
     const uint8_t velocity = _aftertouch > 0 ? _aftertouch : _velocity;
@@ -323,9 +318,9 @@ static class {
 public:
   float pressureMax{1};
   float rotationMax{1};
-  bool reverse{};
-  bool turn{};
-  bool hold{};
+  bool  reverse{};
+  bool  turn{};
+  bool  hold{};
 
   void stop() {
     pressureMax = 1;
@@ -336,7 +331,7 @@ public:
 
     Steppers[Stepper::Bow].stop();
     if (Home)
-      Steppers[Stepper::BowPressure].position(0);
+      Steppers[Stepper::BowPressure].setPosition(0);
   }
 
   void reset() {
@@ -355,7 +350,7 @@ public:
 
     if (!Velocity) {
       Steppers[Stepper::Bow].stop();
-      Steppers[Stepper::BowPressure].position(0);
+      Steppers[Stepper::BowPressure].setPosition(0);
       return;
     }
 
@@ -370,7 +365,7 @@ public:
     Steppers[Stepper::Bow].rotate(speed * (reverse ? -1.f : 1.f));
 
     const float pressureRange = Config.bow.max - Config.bow.min;
-    float pressure            = Config.bow.min + (Velocity.getFraction() * pressureRange * pressureMax);
+    float       pressure      = Config.bow.min + (Velocity.getFraction() * pressureRange * pressureMax);
 
     // Limit the bow pressure to the fraction of the current speed target; avoid getting a
     // still too slow moving bow stuck against the string.
@@ -378,7 +373,7 @@ public:
     if (pressureLimit < 0.9f)
       pressure *= pressureLimit;
 
-    Steppers[Stepper::BowPressure].position(pressure / 8.f * 200.f, 0.5);
+    Steppers[Stepper::BowPressure].setPosition(pressure / 8.f * 200.f, 0.5);
   }
 
   void home() {
@@ -391,14 +386,14 @@ public:
 static class {
 public:
   uint8_t noteIndex{};
-  float pitchbend{};
+  float   pitchbend{};
   struct {
     float rate{};
     float depth{0.5};
   } vibrato;
   float speedMax{1};
   float pressureMax{1};
-  bool hold{};
+  bool  hold{};
 
   void stop() {
     noteIndex     = 0;
@@ -442,14 +437,14 @@ public:
     if (!Home.isFinger())
       return;
 
-    Steppers[Stepper::FingerPressure].position(60.f * (1.f - pressureMax));
+    Steppers[Stepper::FingerPressure].setPosition(60.f * (1.f - pressureMax));
   }
 
   void release() {
     if (!Home.isFinger())
       return;
 
-    Steppers[Stepper::FingerPressure].position(60);
+    Steppers[Stepper::FingerPressure].setPosition(60);
   }
 
   void update() {
@@ -498,12 +493,13 @@ public:
         steps -= adjustVelocity * adjustPitchFraction * oneNoteSteps;
       }
 
-      Steppers[Stepper::Finger].position(steps, speedMax);
+      Steppers[Stepper::Finger].setPosition(steps, speedMax);
       if (!hold)
         touch();
 
-    } else
+    } else {
       release();
+    }
   }
 
   bool inPosition() const {
@@ -520,17 +516,21 @@ public:
     static const auto fingerRelease = []() {
       // Move past the detected home position to increase the finger pressure when positioning to 0.
       Steppers[Stepper::FingerPressure].initializePosition(Config.finger.pressure);
-      Steppers[Stepper::FingerPressure].position(60);
+      Steppers[Stepper::FingerPressure].setPosition(60);
 
       Home.setFinger(true);
     };
 
-    static const auto fingerHome = []() { Steppers[Stepper::FingerPressure].home(200, 0, fingerRelease); };
+    static const auto fingerHome = []() {
+      Steppers[Stepper::FingerPressure].home(200, 0, fingerRelease);
+    };
 
     // Move a few stepes before calling home(). We do not move any steps back after
     // the stall detection in home(), from this position we cannot reliably detect a
     // stall again.
-    static const auto fingerBack = []() { Steppers[Stepper::FingerPressure].position(32, 0.5, fingerHome); };
+    static const auto fingerBack = []() {
+      Steppers[Stepper::FingerPressure].setPosition(32, 0.5, fingerHome);
+    };
 
     // Setup the finger after the rail has moved home; to avoid bending the screw
     // while the finger is in the middle of it.
@@ -547,7 +547,7 @@ private:
   float _target{};
   struct {
     unsigned long usec{};
-    bool high;
+    bool          high;
   } _vibrato{};
 
   float getNotePosition(uint8_t index) {
@@ -563,7 +563,7 @@ private:
 void Home::handler() {
   Bow.update();
   Finger.update();
-};
+}
 
 static class Device : public V2Device {
 public:
@@ -670,8 +670,8 @@ public:
   }
 
 private:
-  unsigned long _timeoutUsec{};
-  V2Music::ForcedStop _force;
+  unsigned long              _timeoutUsec{};
+  V2Music::ForcedStop        _force;
   V2Music::Playing<notesMax> _playing;
 
   void handleLoop() override {
@@ -708,10 +708,9 @@ private:
     if (!Power.on(continuous))
       return false;
 
-    if (!continuous) {
+    if (!continuous)
       for (uint8_t i = 0; i < nSteppers; i++)
         Steppers[i].reset();
-    }
 
     return true;
   }
@@ -1022,7 +1021,6 @@ private:
         uint8_t count = jsonNotes["count"];
         if (count < 1)
           count = 1;
-
         else if (count > notesMax)
           count = notesMax;
 
@@ -1039,7 +1037,6 @@ private:
         float home = jsonBow["home"];
         if (home < 0.f)
           home = 0;
-
         else if (home > 50.f)
           home = 50;
 
@@ -1050,7 +1047,6 @@ private:
         float min = jsonBow["min"];
         if (min < 0.f)
           min = 0;
-
         else if (min > 50.f)
           min = 50;
 
@@ -1061,7 +1057,6 @@ private:
         float max = jsonBow["max"];
         if (max < 0.f)
           max = 0;
-
         else if (max > 50.f)
           max = 50;
 
@@ -1075,7 +1070,6 @@ private:
         float length = jsonString["length"];
         if (length < 1.f)
           length = 1;
-
         else if (length > 2000.f)
           length = 2000;
 
@@ -1086,7 +1080,6 @@ private:
         float home = jsonString["home"];
         if (home < 0.f)
           home = 0;
-
         else if (home > 50.f)
           home = 50;
 
@@ -1162,7 +1155,7 @@ private:
   V2MIDI::Packet _midi{};
 
   // Receive a host event from our parent device
-  void receivePlug(V2Link::Packet *packet) override {
+  void receivePlug(V2Link::Packet* packet) override {
     if (packet->getType() == V2Link::Packet::Type::MIDI) {
       packet->receive(&_midi);
       Device.dispatch(&Plug, &_midi);
@@ -1170,7 +1163,7 @@ private:
   }
 
   // Forward children device events to the host
-  void receiveSocket(V2Link::Packet *packet) override {
+  void receiveSocket(V2Link::Packet* packet) override {
     if (packet->getType() == V2Link::Packet::Type::MIDI) {
       uint8_t address = packet->getAddress();
       if (address == 0x0f)
@@ -1190,7 +1183,7 @@ public:
   constexpr MIDIFile() : V2MIDI::File::Tracks(MIDISong) {}
 
 private:
-  bool handleSend(uint16_t track, V2MIDI::Packet *packet) override {
+  bool handleSend(uint16_t track, V2MIDI::Packet* packet) override {
     switch (track) {
       case 1:
         Device.dispatch(&Device.usb.midi, packet);
@@ -1222,7 +1215,7 @@ private:
 
 void Device::exportSystemMIDIFile(JsonObject json) {
   JsonObject jsonTrack = json["track"].to<JsonObject>();
-  char s[128];
+  char       s[128];
   if (MIDIFile.copyTag(V2MIDI::File::Event::Meta::Title, s, sizeof(s)) > 0)
     jsonTrack["title"] = s;
 
@@ -1285,10 +1278,10 @@ private:
     }
   }
 
-  bool _enabled{};
+  bool    _enabled{};
   uint8_t _velocity{};
   struct {
-    uint8_t note;
+    uint8_t       note;
     unsigned long usec;
   } _play{};
 } TestMode;
