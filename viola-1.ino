@@ -168,7 +168,7 @@ private:
     // The number of green LEDs shows the voltage.
     float   fraction = voltage / (float)config.max;
     uint8_t n        = ceil((float)nSteppers * fraction);
-    LED.splashHSV(0.5, n, V2Color::Green, 1, 0.5);
+    LED.splashHSV(0.5, 0, n, V2Color::Green, 1, 0.5);
   }
 } Power;
 
