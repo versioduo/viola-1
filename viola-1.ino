@@ -10,7 +10,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 32, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 33, "versioduo:samd:step");
 
 static constexpr uint8_t       notesMax{20};
 static constexpr uint8_t       nSteppers{4};
