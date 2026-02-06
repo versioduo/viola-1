@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 34, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 35, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -96,14 +96,14 @@ namespace {
   } Steppers[nSteppers]{
     Stepper(
       {
-        .ampere{0.75},
+        .ampere{0.8},
         .microstepsShift{4},
         .speed{.min{20}, .max{700}, .accel{1000}},
       },
       Stepper::Bow),
     Stepper(
       {
-        .ampere{0.5},
+        .ampere{0.6},
         .microstepsShift{4},
         .inverse{true},
         .home{.speed{500}, .stall{0.04}},
@@ -112,7 +112,7 @@ namespace {
       Stepper::BowPressure),
     Stepper(
       {
-        .ampere{0.6},
+        .ampere{0.7},
         .microstepsShift{4},
         .home{.speed{750}, .stall{0.04}},
         .speed{.min{50}, .max{2400}, .accel{24000}},
@@ -120,7 +120,7 @@ namespace {
       Stepper::Finger),
     Stepper(
       {
-        .ampere{0.6},
+        .ampere{0.7},
         .microstepsShift{4},
         .inverse{true},
         .home{.speed{200}, .stall{0.07}},
@@ -177,22 +177,22 @@ namespace {
     struct {
       // The middle C, MIDI note 60, in this mapping is C3.
       uint8_t start{V2MIDI::C(2)};
-      uint8_t count{20};
+      uint8_t count{19};
     } notes;
 
     struct {
       // Offsets in millimeters.
-      float home{5};
-      float min{4};
+      float home{6};
+      float min{10};
       float max{28};
     } bow;
 
     struct {
       // Overall string length in millimeters.
-      float length{568};
+      float length{587};
 
       // Offset in millimeters from the home position to the first note.
-      float home{5};
+      float home{1};
     } string;
 
     struct {
@@ -473,7 +473,7 @@ namespace {
           steps += oneNote * fraction * (_vibrato.high ? 1.f : -1.f);
         }
 
-        {
+        if (0) {
           // Adjust the pitch depending on the velocity. The increased bow pressure of higher velocities
           // result in higher pitches, because the tension of the string increases.
           //
@@ -917,7 +917,7 @@ namespace {
         setting["label"]   = "Home";
         setting["min"]     = 0;
         setting["max"]     = 50;
-        setting["step"]    = 0.1;
+        setting["step"]    = 0.5;
         setting["default"] = ConfigurationDefault.bow.home;
         setting["path"]    = "bow/home";
       }
@@ -928,7 +928,7 @@ namespace {
         setting["label"]   = "Minimum";
         setting["min"]     = 0;
         setting["max"]     = 50;
-        setting["step"]    = 0.1;
+        setting["step"]    = 0.5;
         setting["default"] = ConfigurationDefault.bow.min;
         setting["path"]    = "bow/min";
       }
@@ -939,7 +939,7 @@ namespace {
         setting["label"]   = "Maximum";
         setting["min"]     = 0;
         setting["max"]     = 50;
-        setting["step"]    = 0.1;
+        setting["step"]    = 0.5;
         setting["default"] = ConfigurationDefault.bow.max;
         setting["path"]    = "bow/max";
       }
@@ -952,7 +952,6 @@ namespace {
         setting["label"]   = "Length";
         setting["min"]     = 1;
         setting["max"]     = 2000;
-        setting["step"]    = 0.1;
         setting["default"] = ConfigurationDefault.string.length;
         setting["path"]    = "string/length";
       }
@@ -963,7 +962,7 @@ namespace {
         setting["label"]   = "Home";
         setting["min"]     = 0;
         setting["max"]     = 50;
-        setting["step"]    = 0.1;
+        setting["step"]    = 0.5;
         setting["default"] = ConfigurationDefault.string.home;
         setting["path"]    = "string/home";
       }
