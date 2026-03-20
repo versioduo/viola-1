@@ -103,11 +103,11 @@ namespace {
       Stepper::Bow),
     Stepper(
       {
-        .ampere{0.6},
+        .ampere{0.7},
         .microstepsShift{4},
         .inverse{true},
         .home{.speed{500}, .stall{0.04}},
-        .speed{.min{5}, .max{4000}, .accel{8000}},
+        .speed{.min{5}, .max{3000}, .accel{6000}},
       },
       Stepper::BowPressure),
     Stepper(
@@ -378,7 +378,7 @@ namespace {
 
     void home() {
       Home.setBow(false);
-      Steppers[Stepper::BowPressure].home(1000, 8 + Config.bow.home / 8.f * 200.f, []() { Home.setBow(true); });
+      Steppers[Stepper::BowPressure].home(1000, 8 + (Config.bow.home / 8.f * 200.f), []() { Home.setBow(true); });
       Steppers[Stepper::BowPressure].hold();
     }
   } Bow;
