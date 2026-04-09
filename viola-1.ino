@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 35, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 36, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -473,7 +473,7 @@ namespace {
           steps += oneNote * fraction * (_vibrato.high ? 1.f : -1.f);
         }
 
-        if (0) {
+         {
           // Adjust the pitch depending on the velocity. The increased bow pressure of higher velocities
           // result in higher pitches, because the tension of the string increases.
           //
