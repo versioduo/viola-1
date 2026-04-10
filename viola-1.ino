@@ -359,17 +359,17 @@ namespace {
         return;
       }
 
-      const float speedRange    = 0.2f + (Velocity.getFraction() * 0.8f);
-      const float speedAdjusted = powf(speedRange, 1.5);
-      const float speed         = speedAdjusted * rotationMax;
+      float speedRange{0.2f + (Velocity.getFraction() * 0.8f)};
+      float speedAdjusted{powf(speedRange, 1.5)};
+      float speed{speedAdjusted * rotationMax};
       Steppers[Stepper::Bow].rotate(speed * (reverse ? -1.f : 1.f));
 
-      const float pressureRange = Config.bow.max - Config.bow.min;
-      float       pressure      = Config.bow.min + (Velocity.getFraction() * pressureRange * pressureMax);
+      float pressureRange{Config.bow.max - Config.bow.min};
+      float pressure{Config.bow.min + (Velocity.getFraction() * pressureRange * pressureMax)};
 
       // Limit the bow pressure to the fraction of the current speed target; avoid getting a
       // still too slow moving bow stuck against the string.
-      const float pressureLimit = Steppers[Stepper::Bow].getSpeedTarget() / Steppers[Stepper::Bow].getSpeed();
+      float pressureLimit{Steppers[Stepper::Bow].getSpeedTarget() / Steppers[Stepper::Bow].getSpeed()};
       if (pressureLimit < 0.9f)
         pressure *= pressureLimit;
 
@@ -473,7 +473,7 @@ namespace {
           steps += oneNote * fraction * (_vibrato.high ? 1.f : -1.f);
         }
 
-         {
+        {
           // Adjust the pitch depending on the velocity. The increased bow pressure of higher velocities
           // result in higher pitches, because the tension of the string increases.
           //
