@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 36, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 37, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -28,7 +28,7 @@ namespace {
       return _mode;
     }
 
-    void setMode(Mode mode = Mode::Notes) {
+    auto setMode(Mode mode = Mode::Notes) {
       _mode = mode;
 
       switch (_mode) {
@@ -78,7 +78,7 @@ namespace {
   private:
     const uint8_t _index;
 
-    void handleMovement(Move move) override {
+    auto handleMovement(Move move) -> void override {
       switch (move) {
         case Move::Forward:
           LED.setHSV(_index, V2Colour::Cyan, 1, 0.4);
@@ -133,26 +133,26 @@ namespace {
   public:
     constexpr Power() : V2PowerSupply({.min{12}, .max{30}}) {}
 
-    void begin() {
+    auto begin() {
       pinMode(PIN_DRIVER_ENABLE, OUTPUT);
       digitalWrite(PIN_DRIVER_ENABLE, HIGH);
     }
 
   private:
-    float handleMeasurement() override {
+    auto handleMeasurement() -> float override {
       // A voltage 10/100k divider.
       return 36.f * ADC.readChannel(V2Base::Analog::ADC::getChannel(PIN_VOLTAGE_SENSE));
     }
 
-    void handleOn() override {
+    auto handleOn() -> void override {
       digitalWrite(PIN_DRIVER_ENABLE, LOW);
     }
 
-    void handleOff() override {
+    auto handleOff() -> void override {
       digitalWrite(PIN_DRIVER_ENABLE, HIGH);
     }
 
-    void handleNotify(float voltage) override {
+    auto handleNotify(float voltage) -> void override {
       // Power interruption, or commands without a power connection show yellow LEDs.
       if (voltage < config.min) {
         LED.splashHSV(0.5, V2Colour::Yellow, 1, 0.5);
@@ -211,42 +211,42 @@ namespace {
       return _velocity > 0;
     }
 
-    void reset() {
+    auto reset() {
       _volume     = 100;
       _velocity   = 0;
       _aftertouch = 0;
       _fraction   = 0;
     }
 
-    float getFraction() const {
+    auto getFraction() -> float const {
       return _fraction;
     }
 
-    uint8_t getVelocity() const {
+    auto getVelocity() -> uint8_t const {
       return _velocity;
     }
 
-    void setVelocity(uint8_t velocity) {
+    auto setVelocity(uint8_t velocity) {
       _velocity = velocity;
       if (_velocity == 0)
         _aftertouch = 0;
       update();
     }
 
-    uint8_t getAftertouch() const {
+    auto getAftertouch() -> uint8_t const {
       return _aftertouch;
     }
 
-    void setAftertouch(uint8_t pressure) {
+    auto setAftertouch(uint8_t pressure) -> void {
       _aftertouch = pressure;
       update();
     }
 
-    uint8_t getVolume() const {
+    auto getVolume() -> uint8_t const {
       return _volume;
     }
 
-    void setVolume(uint8_t volume) {
+    auto setVolume(uint8_t volume) {
       _volume = volume;
       update();
     }
@@ -257,12 +257,12 @@ namespace {
     uint8_t _aftertouch{};
     float   _fraction{};
 
-    void update() {
+    auto update() -> void {
       const uint8_t velocity = _aftertouch > 0 ? _aftertouch : _velocity;
       _fraction              = adjustVolume((float)velocity / 127.f);
     }
 
-    float adjustVolume(float fraction) {
+    auto adjustVolume(float fraction) -> float {
       if (_volume < 100) {
         const float range = (float)_volume / 100.f;
         return fraction * range;
@@ -280,27 +280,27 @@ namespace {
       return _bow && _finger;
     }
 
-    void reset() {
+    auto reset() {
       _bow    = false;
       _finger = false;
     }
 
-    bool isBow() const {
+    auto isBow() -> bool const {
       return _bow;
     }
 
-    void setBow(bool ready) {
+    auto setBow(bool ready) {
       _bow = ready;
 
       if (_bow && _finger)
         handler();
     }
 
-    bool isFinger() const {
+    auto isFinger() -> bool const {
       return _finger;
     }
 
-    void setFinger(bool ready) {
+    auto setFinger(bool ready) {
       _finger = ready;
 
       if (_bow && _finger)
@@ -322,7 +322,7 @@ namespace {
     bool  turn{};
     bool  hold{};
 
-    void stop() {
+    auto stop() {
       pressureMax = 1;
       rotationMax = 1;
       reverse     = false;
@@ -334,13 +334,15 @@ namespace {
         Steppers[Stepper::BowPressure].setPosition(0);
     }
 
-    void reset() {
+    auto reset() {
+      _usec  = 0;
+      _speed = 0;
       stop();
     }
 
-    void update() {
+    auto update() {
       if (!Home.isBow())
-        return;
+         return;
 
       if (turn) {
         Velocity.reset();
@@ -349,9 +351,12 @@ namespace {
       }
 
       if (!Velocity) {
-        Steppers[Stepper::Bow].stop();
+        _usec = V2Base::getUsec();
         Steppers[Stepper::BowPressure].setPosition(0);
         return;
+
+      } else {
+        _usec = 0;
       }
 
       if (hold) {
@@ -361,8 +366,8 @@ namespace {
 
       float speedRange{0.2f + (Velocity.getFraction() * 0.8f)};
       float speedAdjusted{powf(speedRange, 1.5)};
-      float speed{speedAdjusted * rotationMax};
-      Steppers[Stepper::Bow].rotate(speed * (reverse ? -1.f : 1.f));
+      _speed = speedAdjusted * rotationMax;
+      Steppers[Stepper::Bow].rotate(_speed * (reverse ? -1.f : 1.f));
 
       float pressureRange{Config.bow.max - Config.bow.min};
       float pressure{Config.bow.min + (Velocity.getFraction() * pressureRange * pressureMax)};
@@ -376,11 +381,30 @@ namespace {
       Steppers[Stepper::BowPressure].setPosition(pressure / 8.f * 200.f, 0.5);
     }
 
-    void home() {
+    auto loop() {
+      if (_usec == 0 || V2Base::getUsecSince(_usec) < 40.f * 1000.f)
+        return;
+
+      _usec = V2Base::getUsec();
+
+      _speed *= 0.95f;
+      if (_speed < 0.01f) {
+        _usec  = 0;
+        _speed = 0;
+      }
+
+      Steppers[Stepper::Bow].rotate(_speed * (reverse ? -1.f : 1.f));
+    }
+
+    auto home() {
       Home.setBow(false);
       Steppers[Stepper::BowPressure].home(1000, 8 + (Config.bow.home / 8.f * 200.f), []() { Home.setBow(true); });
       Steppers[Stepper::BowPressure].hold();
     }
+
+  private:
+    float    _speed{};
+    uint32_t _usec{};
   } Bow;
 
   class {
@@ -395,7 +419,7 @@ namespace {
     float pressureMax{1};
     bool  hold{};
 
-    void stop() {
+    auto stop() {
       noteIndex     = 0;
       pitchbend     = 0;
       vibrato.rate  = 0;
@@ -408,12 +432,12 @@ namespace {
       release();
     }
 
-    void reset() {
+    auto reset() {
       stop();
       Home.setFinger(false);
     }
 
-    void loop() {
+    auto loop() {
       if (Velocity.getVelocity() == 0)
         return;
 
@@ -433,21 +457,21 @@ namespace {
       update();
     }
 
-    void touch() {
+    auto touch() {
       if (!Home.isFinger())
         return;
 
       Steppers[Stepper::FingerPressure].setPosition(60.f * (1.f - pressureMax));
     }
 
-    void release() {
+    auto release() -> void {
       if (!Home.isFinger())
         return;
 
       Steppers[Stepper::FingerPressure].setPosition(60);
     }
 
-    void update() {
+    auto update() -> void {
       if (!Home.isFinger())
         return;
 
@@ -502,7 +526,7 @@ namespace {
       }
     }
 
-    bool inPosition() const {
+    auto inPosition() -> bool const {
       if (noteIndex == 0)
         return true;
 
@@ -510,7 +534,7 @@ namespace {
       return fabs(distance) < 400.f;
     }
 
-    void home() {
+    auto home() {
       Home.setFinger(false);
 
       static const auto fingerRelease = []() {
@@ -550,7 +574,7 @@ namespace {
       bool          high;
     } _vibrato{};
 
-    float getNotePosition(uint8_t index) {
+    auto getNotePosition(uint8_t index) -> float {
       // The number of steps to shorten the string by, to play the n-th note above the
       // base note. The first note is played with the open string. The 'length' is the
       // overall string length in meters. This string length is 57 cm, one turn is 8 mm.
@@ -560,7 +584,7 @@ namespace {
     }
   } Finger;
 
-  void Home::handler() {
+  auto Home::handler() -> void {
     Bow.update();
     Finger.update();
   }
@@ -595,7 +619,7 @@ namespace {
       BowTurn        = V2MIDI::CC::Controller15,
     };
 
-    void allNotesOff(bool home = false) {
+    auto allNotesOff(bool home = false) {
       Manual.setMode();
       _playing.reset();
       Velocity.reset();
@@ -614,7 +638,7 @@ namespace {
       _timeoutUsec = V2Base::getUsec();
     }
 
-    void play(uint8_t note, uint8_t velocity) {
+    auto play(uint8_t note, uint8_t velocity) {
       if (note < Config.notes.start || note >= Config.notes.start + Config.notes.count)
         return;
 
@@ -657,13 +681,13 @@ namespace {
     }
 
     // Velocity 80 for tuning, the open string cannot be pitch corrected.
-    void tune(uint8_t note) {
+    auto tune(uint8_t note) {
       allNotesOff();
       play(note, 80);
     }
 
     // Turn bow to apply rosin.
-    void turn() {
+    auto turn() {
       allNotesOff();
       Bow.turn = true;
       Bow.update();
@@ -674,7 +698,7 @@ namespace {
     V2Music::ForcedStop        _force;
     V2Music::Playing<notesMax> _playing;
 
-    void handleLoop() override {
+    auto handleLoop() -> void override {
       if (_timeoutUsec > 0 && V2Base::getUsecSince(_timeoutUsec) > 900 * 1000 * 1000)
         reset();
 
@@ -685,10 +709,11 @@ namespace {
         Finger.update();
       }
 
+      Bow.loop();
       Finger.loop();
     }
 
-    void handleReset() override {
+    auto handleReset() -> void override {
       _timeoutUsec = 0;
       _force.reset();
       _playing.reset();
@@ -702,7 +727,7 @@ namespace {
         Steppers[i].reset();
     }
 
-    bool power() {
+    auto power() -> bool {
       bool continuous;
 
       if (!Power.on(continuous))
@@ -715,19 +740,19 @@ namespace {
       return true;
     }
 
-    void handleNote(uint8_t channel, uint8_t note, uint8_t velocity) override {
+    auto handleNote(uint8_t channel, uint8_t note, uint8_t velocity) -> void override {
       _timeoutUsec = V2Base::getUsec();
 
       play(note, velocity);
     }
 
-    void handleNoteOff(uint8_t channel, uint8_t note, uint8_t velocity) override {
+    auto handleNoteOff(uint8_t channel, uint8_t note, uint8_t velocity) -> void override {
       _timeoutUsec = V2Base::getUsec();
 
       play(note, 0);
     }
 
-    void handleAftertouchChannel(uint8_t channel, uint8_t pressure) override {
+    auto handleAftertouchChannel(uint8_t channel, uint8_t pressure) -> void override {
       _timeoutUsec = V2Base::getUsec();
 
       Velocity.setAftertouch(pressure);
@@ -735,14 +760,14 @@ namespace {
       Finger.update();
     }
 
-    void handleAftertouch(uint8_t channel, uint8_t note, uint8_t pressure) override {
+    auto handleAftertouch(uint8_t channel, uint8_t note, uint8_t pressure) -> void override {
       if (note - Config.notes.start != Finger.noteIndex)
         return;
 
       handleAftertouchChannel(channel, pressure);
     }
 
-    void handleControlChange(uint8_t channel, uint8_t controller, uint8_t value) override {
+    auto handleControlChange(uint8_t channel, uint8_t controller, uint8_t value) -> void override {
       if (channel != 0)
         return;
 
@@ -803,18 +828,18 @@ namespace {
       }
     }
 
-    void handlePitchBend(uint8_t channel, int16_t value) override {
+    auto handlePitchBend(uint8_t channel, int16_t value) -> void override {
       _timeoutUsec = V2Base::getUsec();
 
       Finger.pitchbend = (float)value / (value < 0 ? 8192.f : 8191.f);
       Finger.update();
     }
 
-    void handleSystemReset() override {
+    auto handleSystemReset() -> void override {
       reset();
     }
 
-    void exportInput(JsonObject json) override {
+    auto exportInput(JsonObject json) -> void override {
       {
         JsonObject jsonPitchbend = json["pitchbend"].to<JsonObject>();
         jsonPitchbend["value"]   = (int16_t)(Finger.pitchbend * (Finger.pitchbend < 0 ? 8192.f : 8191.f));
@@ -890,7 +915,7 @@ namespace {
       }
     }
 
-    void exportSettings(JsonArray json) override {
+    auto exportSettings(JsonArray json) -> void override {
       {
         JsonObject setting = json.add<JsonObject>();
         setting["type"]    = "note";
@@ -979,7 +1004,7 @@ namespace {
       }
     }
 
-    void exportConfiguration(JsonObject json) override {
+    auto exportConfiguration(JsonObject json) -> void override {
       JsonObject jsonNotes = json["notes"].to<JsonObject>();
       jsonNotes["#start"]  = "First note";
       jsonNotes["start"]   = Config.notes.start;
@@ -1005,7 +1030,7 @@ namespace {
       jsonFinger["pressure"]  = Config.finger.pressure;
     }
 
-    void importConfiguration(JsonObject json) override {
+    auto importConfiguration(JsonObject json) -> void override {
       JsonObject jsonNotes = json["notes"];
       if (jsonNotes) {
         if (!jsonNotes["start"].isNull()) {
@@ -1098,9 +1123,9 @@ namespace {
       }
     }
 
-    virtual void exportSystemMIDIFile(JsonObject json);
+    virtual auto exportSystemMIDIFile(JsonObject json) -> void;
 
-    void exportSystem(JsonObject json) override {
+    auto exportSystem(JsonObject json) -> void override {
       {
         JsonObject jsonPower       = json["power"].to<JsonObject>();
         jsonPower["voltage"]       = serialized(String(Power.getVoltage(), 1));
@@ -1126,7 +1151,7 @@ namespace {
   // Dispatch MIDI packets
   class MIDI {
   public:
-    void loop() {
+    auto loop() {
       if (!Device.usb.midi.receive(&_midi))
         return;
 
@@ -1154,7 +1179,7 @@ namespace {
     V2MIDI::Packet _midi{};
 
     // Receive a host event from our parent device
-    void receivePlug(V2Link::Packet* packet) override {
+    auto receivePlug(V2Link::Packet* packet) -> void override {
       if (packet->getType() == V2Link::Packet::Type::MIDI) {
         packet->receive(&_midi);
         Device.dispatch(&Plug, &_midi);
@@ -1162,7 +1187,7 @@ namespace {
     }
 
     // Forward children device events to the host
-    void receiveSocket(V2Link::Packet* packet) override {
+    auto receiveSocket(V2Link::Packet* packet) -> void override {
       if (packet->getType() == V2Link::Packet::Type::MIDI) {
         uint8_t address = packet->getAddress();
         if (address == 0x0f)
@@ -1182,7 +1207,7 @@ namespace {
     constexpr MIDIFile() : V2MIDI::File::Tracks(MIDISong) {}
 
   private:
-    bool handleSend(uint16_t track, V2MIDI::Packet* packet) override {
+    auto handleSend(uint16_t track, V2MIDI::Packet* packet) -> bool override {
       switch (track) {
         case 1:
           Device.dispatch(&Device.usb.midi, packet);
@@ -1197,7 +1222,7 @@ namespace {
       return true;
     }
 
-    void handleStateChange(V2MIDI::File::Tracks::State state) override {
+    auto handleStateChange(V2MIDI::File::Tracks::State state) -> void override {
       switch (state) {
         case V2MIDI::File::Tracks::State::Stop:
           Device.allNotesOff();
@@ -1212,8 +1237,8 @@ namespace {
     }
   } MIDIFile;
 
-  void Device::exportSystemMIDIFile(JsonObject json) {
-    JsonObject jsonTrack = json["track"].to<JsonObject>();
+  auto Device::exportSystemMIDIFile(JsonObject json) -> void {
+    JsonObject jsonTrack{json["track"].to<JsonObject>()};
     char       s[128];
     if (MIDIFile.copyTag(V2MIDI::File::Event::Meta::Title, s, sizeof(s)) > 0)
       jsonTrack["title"] = s;
@@ -1224,21 +1249,21 @@ namespace {
 
   class {
   public:
-    void stop() {
+    auto stop() {
       if (!_enabled)
         Device.allNotesOff(true);
 
       _enabled = false;
     }
 
-    void play() {
+    auto play() {
       Device.allNotesOff();
       _enabled  = true;
       _velocity = 20;
       _play     = {};
     }
 
-    void loop() {
+    auto loop() {
       if (!_enabled)
         return;
 
@@ -1246,7 +1271,7 @@ namespace {
     }
 
   private:
-    void playNote() {
+    auto playNote() -> void {
       if (V2Base::getUsecSince(_play.usec) < 1200 * 1000)
         return;
 
@@ -1292,7 +1317,7 @@ namespace {
   private:
     const V2Buttons::Config _config{.clickUsec{200 * 1000}, .holdUsec{500 * 1000}};
 
-    void handleClick(uint8_t count) override {
+    auto handleClick(uint8_t count) -> void override {
       switch (count) {
         case 0:
           MIDIFile.stop();
@@ -1308,7 +1333,7 @@ namespace {
       }
     }
 
-    void handleHold(uint8_t count) override {
+    auto handleHold(uint8_t count) -> void override {
       switch (count) {
         case 0:
           Manual.setMode(Manual::Mode::Song);
@@ -1339,7 +1364,7 @@ namespace {
   } Button;
 }
 
-void setup() {
+auto setup() -> void {
   Serial.begin(9600);
   SPI.begin();
 
@@ -1372,7 +1397,7 @@ void setup() {
   Device.reset();
 }
 
-void loop() {
+auto loop() -> void {
   for (uint8_t i = 0; i < nSteppers; i++)
     Steppers[i].loop();
 
