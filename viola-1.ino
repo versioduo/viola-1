@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 37, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 38, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -201,7 +201,7 @@ namespace {
     } finger;
   } ConfigurationDefault;
 
-  struct Configuration Config{ConfigurationDefault};
+  auto Config{ConfigurationDefault};
 
   // Calculate the effective velocity depending on the note velocity, aftertouch /
   // pressure, and the volume controller.
@@ -316,6 +316,7 @@ namespace {
 
   class {
   public:
+    float release{0.5};
     float pressureMax{1};
     float rotationMax{1};
     bool  reverse{};
@@ -323,6 +324,7 @@ namespace {
     bool  hold{};
 
     auto stop() {
+      release     = 0.5;
       pressureMax = 1;
       rotationMax = 1;
       reverse     = false;
@@ -342,7 +344,7 @@ namespace {
 
     auto update() {
       if (!Home.isBow())
-         return;
+        return;
 
       if (turn) {
         Velocity.reset();
@@ -387,7 +389,8 @@ namespace {
 
       _usec = V2Base::getUsec();
 
-      _speed *= 0.95f;
+      float adjust{0.45f + (0.5f * release)};
+      _speed *= adjust;
       if (_speed < 0.01f) {
         _usec  = 0;
         _speed = 0;
@@ -609,12 +612,16 @@ namespace {
 
     enum class CC {
       Volume         = V2MIDI::CC::ChannelVolume,
-      FingerSpeed    = V2MIDI::CC::Controller3,
-      FingerPressure = V2MIDI::CC::Controller9,
+      Attack         = V2MIDI::CC::SoundController4,
+      Release        = V2MIDI::CC::SoundController3,
+      Portamento     = V2MIDI::CC::PortamentoTime,
       VibratoRate    = V2MIDI::CC::SoundController7,
       VibratoDepth   = V2MIDI::CC::SoundController8,
+      FingerSpeed    = V2MIDI::CC::Controller3,
+      FingerPressure = V2MIDI::CC::Controller9,
       BowSpeed       = V2MIDI::CC::ModulationWheel,
       BowPressure    = V2MIDI::CC::SoundController5,
+      BowRelease     = V2MIDI::CC::SoundController6,
       BowReverse     = V2MIDI::CC::Controller14,
       BowTurn        = V2MIDI::CC::Controller15,
     };
@@ -774,47 +781,60 @@ namespace {
       _timeoutUsec = V2Base::getUsec();
 
       switch (controller) {
-        case (uint8_t)CC::Volume:
+        case uint8_t(CC::Volume):
           Velocity.setVolume(value);
           Bow.update();
           break;
 
-        case (uint8_t)CC::FingerSpeed:
-          Finger.speedMax = (float)(value + 1) / 128.f;
-          Finger.update();
+        case uint8_t(CC::Attack):
           break;
 
-        case (uint8_t)CC::FingerPressure:
-          Finger.pressureMax = (float)(value + 1) / 128.f;
-          Finger.update();
+        case uint8_t(CC::Release):
           break;
 
-        case (uint8_t)CC::VibratoRate:
+        case uint8_t(CC::Portamento):
+          break;
+
+        case uint8_t(CC::VibratoRate):
           Finger.vibrato.rate = (float)value / 127.f;
           Finger.update();
           break;
 
-        case (uint8_t)CC::VibratoDepth:
+        case uint8_t(CC::VibratoDepth):
           Finger.vibrato.depth = (float)value / 127.f;
           Finger.update();
           break;
 
-        case (uint8_t)CC::BowSpeed:
+        case uint8_t(CC::FingerSpeed):
+          Finger.speedMax = (float)(value + 1) / 128.f;
+          Finger.update();
+          break;
+
+        case uint8_t(CC::FingerPressure):
+          Finger.pressureMax = (float)(value + 1) / 128.f;
+          Finger.update();
+          break;
+
+        case uint8_t(CC::BowSpeed):
           Bow.rotationMax = (float)(value + 1) / 128.f;
           Bow.update();
           break;
 
-        case (uint8_t)CC::BowPressure:
+        case uint8_t(CC::BowPressure):
           Bow.pressureMax = (float)(value + 1) / 128.f;
           Bow.update();
           break;
 
-        case (uint8_t)CC::BowReverse:
+        case uint8_t(CC::BowRelease):
+          Bow.release = (float)(value + 1) / 128.f;
+          break;
+
+        case uint8_t(CC::BowReverse):
           Bow.reverse = value > 63;
           Bow.update();
           break;
 
-        case (uint8_t)CC::BowTurn:
+        case uint8_t(CC::BowTurn):
           if (value > 63)
             turn();
           else
@@ -860,58 +880,82 @@ namespace {
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Volume";
-        jsonController["number"]  = (uint8_t)CC::Volume;
+        jsonController["number"]  = uint8_t(CC::Volume);
         jsonController["value"]   = Velocity.getVolume();
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
-        jsonController["name"]    = "Finger Speed";
-        jsonController["number"]  = (uint8_t)CC::FingerSpeed;
-        jsonController["value"]   = (uint8_t)(Finger.speedMax * 127.f);
+        jsonController["name"]    = "Attack";
+        jsonController["number"]  = uint8_t(CC::Attack);
+        jsonController["value"]   = uint8_t(1.f * 127.f);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
-        jsonController["name"]    = "Finger Pressure";
-        jsonController["number"]  = (uint8_t)CC::FingerPressure;
-        jsonController["value"]   = (uint8_t)(Finger.pressureMax * 127.f);
+        jsonController["name"]    = "Release";
+        jsonController["number"]  = uint8_t(CC::Release);
+        jsonController["value"]   = uint8_t(1.f * 127.f);
+      }
+      {
+        JsonObject jsonController = jsonControllers.add<JsonObject>();
+        jsonController["name"]    = "Portamento";
+        jsonController["number"]  = uint8_t(CC::Portamento);
+        jsonController["value"]   = uint8_t(1.f * 127.f);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Vibrato Rate";
-        jsonController["number"]  = (uint8_t)CC::VibratoRate;
+        jsonController["number"]  = uint8_t(CC::VibratoRate);
         jsonController["value"]   = (uint8_t)(Finger.vibrato.rate * 127.f);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Vibrato Depth";
-        jsonController["number"]  = (uint8_t)CC::VibratoDepth;
+        jsonController["number"]  = uint8_t(CC::VibratoDepth);
         jsonController["value"]   = (uint8_t)(Finger.vibrato.depth * 127.f);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
+        jsonController["name"]    = "Finger Speed";
+        jsonController["number"]  = uint8_t(CC::FingerSpeed);
+        jsonController["value"]   = uint8_t(Finger.speedMax * 127.f);
+      }
+      {
+        JsonObject jsonController = jsonControllers.add<JsonObject>();
+        jsonController["name"]    = "Finger Pressure";
+        jsonController["number"]  = uint8_t(CC::FingerPressure);
+        jsonController["value"]   = uint8_t(Finger.pressureMax * 127.f);
+      }
+      {
+        JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Bow Speed";
-        jsonController["number"]  = (uint8_t)CC::BowSpeed;
-        jsonController["value"]   = (uint8_t)(Bow.rotationMax * 127.f);
+        jsonController["number"]  = uint8_t(CC::BowSpeed);
+        jsonController["value"]   = uint8_t(Bow.rotationMax * 127.f);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Bow Pressure";
-        jsonController["number"]  = (uint8_t)CC::BowPressure;
-        jsonController["value"]   = (uint8_t)(Bow.pressureMax * 127.f);
+        jsonController["number"]  = uint8_t(CC::BowPressure);
+        jsonController["value"]   = uint8_t(Bow.pressureMax * 127.f);
+      }
+      {
+        JsonObject jsonController = jsonControllers.add<JsonObject>();
+        jsonController["name"]    = "Bow Release";
+        jsonController["number"]  = uint8_t(CC::BowRelease);
+        jsonController["value"]   = uint8_t(Bow.release * 127.f);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Bow Reverse";
         jsonController["type"]    = "toggle";
-        jsonController["number"]  = (uint8_t)CC::BowReverse;
-        jsonController["value"]   = (uint8_t)(Bow.reverse ? 127 : 0);
+        jsonController["number"]  = uint8_t(CC::BowReverse);
+        jsonController["value"]   = uint8_t(Bow.reverse ? 127 : 0);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Bow Turn";
         jsonController["type"]    = "toggle";
-        jsonController["number"]  = (uint8_t)CC::BowTurn;
-        jsonController["value"]   = (uint8_t)(Bow.turn ? 127 : 0);
+        jsonController["number"]  = uint8_t(CC::BowTurn);
+        jsonController["value"]   = uint8_t(Bow.turn ? 127 : 0);
       }
     }
 
