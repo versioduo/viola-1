@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 38, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 39, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -451,7 +451,7 @@ namespace {
         return;
 
       // A typical string vibrato is 5-8 Hz, 0.2-0.4 semitones.
-      const float hz = 5 + (3 * vibrato.rate);
+      float hz{5.f + (3.f * vibrato.rate)};
       if (V2Base::getUsecSince(_vibrato.usec) < (1000.f * 1000.f) / hz)
         return;
 
@@ -479,27 +479,24 @@ namespace {
         return;
 
       // The base note is the open string.
-      if (noteIndex > 0) {
-        float steps         = getNotePosition(noteIndex);
-        float stepsTwoNotes = 0;
-        if (pitchbend < 0) {
-          const uint8_t twoNotes = max((int8_t)noteIndex - 2, 0);
-          stepsTwoNotes          = steps - getNotePosition(twoNotes);
+      if (noteIndex == 0) {
+        release();
+        return;
+      }
 
-        } else {
-          const uint8_t twoNotes = min(noteIndex + 2, Config.notes.count - 1);
-          stepsTwoNotes          = getNotePosition(twoNotes) - steps;
+      {
+        float target{getNotePosition(noteIndex)};
+        {
+          float targetTwoNotes{};
+          if (pitchbend < 0) {
+            auto twoNotes{uint8_t(std::max((int8_t)noteIndex - 2, 0))};
+            targetTwoNotes = target - getNotePosition(twoNotes);
+          } else {
+            auto twoNotes{uint8_t(std::min(noteIndex + 2, Config.notes.count - 1))};
+            targetTwoNotes = getNotePosition(twoNotes) - target;
+          }
+          target += targetTwoNotes * pitchbend;
         }
-        steps += stepsTwoNotes * pitchbend;
-        _target = steps;
-
-        // A typical string vibrato is 5-8 Hz, 0.2-0.4 semitones.
-        if (vibrato.rate > 0) {
-          const float oneNote  = getNotePosition(noteIndex + 1) - getNotePosition(noteIndex);
-          const float fraction = 0.01f + (0.2f * powf(vibrato.depth, 1.5));
-          steps += oneNote * fraction * (_vibrato.high ? 1.f : -1.f);
-        }
-
         {
           // Adjust the pitch depending on the velocity. The increased bow pressure of higher velocities
           // result in higher pitches, because the tension of the string increases.
@@ -510,31 +507,49 @@ namespace {
           // 0.6  0
           // 0.8  0.8
           // 1    1
-          const float adjustVelocity = (1.3f * powf(Velocity.getFraction(), 3.5)) - 0.3f;
+          float adjustVelocity{(1.3f * powf(Velocity.getFraction(), 3.5)) - 0.3f};
 
           // The adjustment is between 30 and 55 cent, depending on the pitch / actual string length.
-          const float notePositionFraction = (float)noteIndex / (notesMax - 1);
-          const float adjustPitchFraction  = 0.3f + (0.25f * (1.f - notePositionFraction));
+          float notePositionFraction{float(noteIndex) / (notesMax - 1)};
+          float adjustPitchFraction{0.3f + (0.25f * (1.f - notePositionFraction))};
 
-          const float oneNoteSteps = getNotePosition(noteIndex + 1) - getNotePosition(noteIndex);
-          steps -= adjustVelocity * adjustPitchFraction * oneNoteSteps;
+          float oneNoteSteps{getNotePosition(noteIndex + 1) - getNotePosition(noteIndex)};
+          target -= adjustVelocity * adjustPitchFraction * oneNoteSteps;
+          if (target < 0.f)
+            target = 0;
         }
 
-        Steppers[Stepper::Finger].setPosition(steps, speedMax);
-        if (!hold)
-          touch();
-
-      } else {
-        release();
+        _target = target;
       }
+
+      if (!hold)
+        touch();
+
+      // A typical string vibrato is 5-8 Hz, 0.2-0.4 semitones.
+      if (vibrato.rate > 0.f) {
+        float oneNoteSteps{getNotePosition(noteIndex + 1) - getNotePosition(noteIndex)};
+        float fraction{0.01f + (0.2f * powf(vibrato.depth, 1.5))};
+        float delta{oneNoteSteps * fraction * (_vibrato.high ? 1.f : -1.f)};
+        float target{_target + delta};
+        if (target < 0.f)
+          target = 0;
+
+        float distance{std::fabs(Steppers[Stepper::Finger].getPosition() - _target)};
+        if (distance / 2.f <= std::fabs(delta)) {
+          Steppers[Stepper::Finger].setPosition(target);
+          return;
+        }
+      }
+
+      Steppers[Stepper::Finger].setPosition(_target, speedMax);
     }
 
     auto inPosition() -> bool const {
       if (noteIndex == 0)
         return true;
 
-      const float distance = Steppers[Stepper::Finger].getPosition() - _target;
-      return fabs(distance) < 400.f;
+      float distance{Steppers[Stepper::Finger].getPosition() - _target};
+      return std::fabs(distance) < 400.f;
     }
 
     auto home() {
@@ -614,7 +629,6 @@ namespace {
       Volume         = V2MIDI::CC::ChannelVolume,
       Attack         = V2MIDI::CC::SoundController4,
       Release        = V2MIDI::CC::SoundController3,
-      Portamento     = V2MIDI::CC::PortamentoTime,
       VibratoRate    = V2MIDI::CC::SoundController7,
       VibratoDepth   = V2MIDI::CC::SoundController8,
       FingerSpeed    = V2MIDI::CC::Controller3,
@@ -792,9 +806,6 @@ namespace {
         case uint8_t(CC::Release):
           break;
 
-        case uint8_t(CC::Portamento):
-          break;
-
         case uint8_t(CC::VibratoRate):
           Finger.vibrato.rate = (float)value / 127.f;
           Finger.update();
@@ -893,12 +904,6 @@ namespace {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Release";
         jsonController["number"]  = uint8_t(CC::Release);
-        jsonController["value"]   = uint8_t(1.f * 127.f);
-      }
-      {
-        JsonObject jsonController = jsonControllers.add<JsonObject>();
-        jsonController["name"]    = "Portamento";
-        jsonController["number"]  = uint8_t(CC::Portamento);
         jsonController["value"]   = uint8_t(1.f * 127.f);
       }
       {
