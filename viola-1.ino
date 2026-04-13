@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 40, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 42, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -218,31 +218,29 @@ namespace {
       _fraction   = 0;
     }
 
-    auto getFraction() -> float const {
+    auto fraction() -> float const {
       return _fraction;
     }
 
-    auto getVelocity() -> uint8_t const {
-      return _velocity;
-    }
-
-    auto setVelocity(uint8_t velocity) {
-      _velocity = velocity;
-      if (_velocity == 0)
-        _aftertouch = 0;
+    auto set(uint8_t velocity) {
+      _velocity   = velocity;
+      _aftertouch = 0;
       update();
     }
 
-    auto getAftertouch() -> uint8_t const {
+    auto aftertouch() -> uint8_t const {
       return _aftertouch;
     }
 
     auto setAftertouch(uint8_t pressure) -> void {
+      if (_velocity == 0)
+        return;
+
       _aftertouch = pressure;
       update();
     }
 
-    auto getVolume() -> uint8_t const {
+    auto volume() -> uint8_t const {
       return _volume;
     }
 
@@ -258,17 +256,17 @@ namespace {
     float   _fraction{};
 
     auto update() -> void {
-      const uint8_t velocity = _aftertouch > 0 ? _aftertouch : _velocity;
-      _fraction              = adjustVolume((float)velocity / 127.f);
+      uint8_t velocity{_aftertouch > 0 ? _aftertouch : _velocity};
+      _fraction = adjustVolume(float(velocity) / 127.f);
     }
 
     auto adjustVolume(float fraction) -> float {
       if (_volume < 100) {
-        const float range = (float)_volume / 100.f;
+        float range{float(_volume) / 100.f};
         return fraction * range;
       }
 
-      const float range = (float)(_volume - 100) / 27.f;
+      float range{float(_volume - 100) / 27.f};
       return powf(fraction, 1 - (0.5f * range));
     }
   } Velocity;
@@ -366,13 +364,13 @@ namespace {
         return;
       }
 
-      float speedRange{0.2f + (Velocity.getFraction() * 0.8f)};
+      float speedRange{0.2f + (Velocity.fraction() * 0.8f)};
       float speedAdjusted{powf(speedRange, 1.5)};
       _speed = speedAdjusted * rotationMax;
       Steppers[Stepper::Bow].rotate(_speed * (reverse ? -1.f : 1.f));
 
       float pressureRange{Config.bow.max - Config.bow.min};
-      float pressure{Config.bow.min + (Velocity.getFraction() * pressureRange * pressureMax)};
+      float pressure{Config.bow.min + (Velocity.fraction() * pressureRange * pressureMax)};
 
       // Limit the bow pressure to the fraction of the current speed target; avoid getting a
       // still too slow moving bow stuck against the string.
@@ -442,7 +440,7 @@ namespace {
     }
 
     auto loop() {
-      if (Velocity.getVelocity() == 0)
+      if (!Velocity)
         return;
 
       if (noteIndex == 0)
@@ -508,7 +506,7 @@ namespace {
           // 0.6  0
           // 0.8  0.8
           // 1    1
-          float adjustVelocity{(1.3f * powf(Velocity.getFraction(), 3.5)) - 0.3f};
+          float adjustVelocity{(1.3f * powf(Velocity.fraction(), 3.5)) - 0.3f};
 
           // The adjustment is between 30 and 55 cent, depending on the pitch / actual string length.
           float notePositionFraction{float(noteIndex) / (notesMax - 1)};
@@ -684,7 +682,7 @@ namespace {
         }
       }
 
-      Velocity.setVelocity(velocity);
+      Velocity.set(velocity);
 
       if (velocity > 0) {
         Finger.noteIndex = note - Config.notes.start;
@@ -698,7 +696,7 @@ namespace {
         }
       }
 
-      Velocity.setVelocity(velocity);
+      Velocity.set(velocity);
       Bow.update();
     }
 
@@ -885,7 +883,7 @@ namespace {
 
       {
         JsonObject jsonAftertouch = json["aftertouch"].to<JsonObject>();
-        jsonAftertouch["value"]   = Velocity.getAftertouch();
+        jsonAftertouch["value"]   = Velocity.aftertouch();
       }
 
       JsonArray jsonControllers = json["controllers"].to<JsonArray>();
@@ -893,7 +891,7 @@ namespace {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Volume";
         jsonController["number"]  = uint8_t(CC::Volume);
-        jsonController["value"]   = Velocity.getVolume();
+        jsonController["value"]   = Velocity.volume();
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
