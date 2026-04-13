@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 39, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 40, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -401,6 +401,7 @@ namespace {
 
     auto home() {
       Home.setBow(false);
+      Steppers[Stepper::Bow].freewheel();
       Steppers[Stepper::BowPressure].home(1000, 8 + (Config.bow.home / 8.f * 200.f), []() { Home.setBow(true); });
       Steppers[Stepper::BowPressure].hold();
     }
