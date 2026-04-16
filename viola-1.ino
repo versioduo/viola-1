@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 42, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 43, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -632,6 +632,7 @@ namespace {
       VibratoDepth   = V2MIDI::CC::SoundController8,
       FingerSpeed    = V2MIDI::CC::Controller3,
       FingerPressure = V2MIDI::CC::Controller9,
+      FingerPosition = V2MIDI::CC::Controller85,
       BowSpeed       = V2MIDI::CC::ModulationWheel,
       BowPressure    = V2MIDI::CC::SoundController5,
       BowRelease     = V2MIDI::CC::SoundController6,
@@ -743,7 +744,7 @@ namespace {
       Finger.reset();
       Power.off();
 
-      for (uint8_t i = 0; i < nSteppers; i++)
+      for (uint8_t i{}; i < nSteppers; i++)
         Steppers[i].reset();
     }
 
@@ -754,7 +755,7 @@ namespace {
         return false;
 
       if (!continuous)
-        for (uint8_t i = 0; i < nSteppers; i++)
+        for (uint8_t i{}; i < nSteppers; i++)
           Steppers[i].reset();
 
       return true;
@@ -822,6 +823,14 @@ namespace {
 
         case uint8_t(CC::FingerPressure):
           Finger.pressureMax = (float)(value + 1) / 128.f;
+          Finger.update();
+          break;
+
+        case uint8_t(CC::FingerPosition):
+          if (value < Config.notes.start || value >= Config.notes.start + Config.notes.count)
+            break;
+
+          Finger.noteIndex = value - Config.notes.start;
           Finger.update();
           break;
 
@@ -928,6 +937,11 @@ namespace {
         jsonController["name"]    = "Finger Pressure";
         jsonController["number"]  = uint8_t(CC::FingerPressure);
         jsonController["value"]   = uint8_t(Finger.pressureMax * 127.f);
+      }
+      {
+        JsonObject jsonController = jsonControllers.add<JsonObject>();
+        jsonController["name"]    = "Finger Position";
+        jsonController["number"]  = uint8_t(CC::FingerPosition);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
