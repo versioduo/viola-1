@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 43, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 44, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -364,7 +364,7 @@ namespace {
         return;
       }
 
-      float speedRange{0.2f + (Velocity.fraction() * 0.8f)};
+      float speedRange{0.23f + (Velocity.fraction() * 0.77f)};
       float speedAdjusted{powf(speedRange, 1.5)};
       _speed = speedAdjusted * rotationMax;
       Steppers[Stepper::Bow].rotate(_speed * (reverse ? -1.f : 1.f));
