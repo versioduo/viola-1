@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 44, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 45, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -626,8 +626,6 @@ namespace {
 
     enum class CC {
       Volume         = V2MIDI::CC::ChannelVolume,
-      Attack         = V2MIDI::CC::SoundController4,
-      Release        = V2MIDI::CC::SoundController3,
       VibratoRate    = V2MIDI::CC::SoundController7,
       VibratoDepth   = V2MIDI::CC::SoundController8,
       FingerSpeed    = V2MIDI::CC::Controller3,
@@ -800,12 +798,6 @@ namespace {
           Bow.update();
           break;
 
-        case uint8_t(CC::Attack):
-          break;
-
-        case uint8_t(CC::Release):
-          break;
-
         case uint8_t(CC::VibratoRate):
           Finger.vibrato.rate = (float)value / 127.f;
           Finger.update();
@@ -901,18 +893,6 @@ namespace {
         jsonController["name"]    = "Volume";
         jsonController["number"]  = uint8_t(CC::Volume);
         jsonController["value"]   = Velocity.volume();
-      }
-      {
-        JsonObject jsonController = jsonControllers.add<JsonObject>();
-        jsonController["name"]    = "Attack";
-        jsonController["number"]  = uint8_t(CC::Attack);
-        jsonController["value"]   = uint8_t(1.f * 127.f);
-      }
-      {
-        JsonObject jsonController = jsonControllers.add<JsonObject>();
-        jsonController["name"]    = "Release";
-        jsonController["number"]  = uint8_t(CC::Release);
-        jsonController["value"]   = uint8_t(1.f * 127.f);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
