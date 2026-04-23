@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 45, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 46, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -352,7 +352,7 @@ namespace {
 
       if (!Velocity) {
         _usec = V2Base::getUsec();
-        Steppers[Stepper::BowPressure].setPosition(0);
+        Steppers[Stepper::BowPressure].setPosition(0, 0.5);
         return;
 
       } else {
@@ -364,10 +364,12 @@ namespace {
         return;
       }
 
-      float speedRange{0.23f + (Velocity.fraction() * 0.77f)};
-      float speedAdjusted{powf(speedRange, 1.5)};
-      _speed = speedAdjusted * rotationMax;
-      Steppers[Stepper::Bow].rotate(_speed * (reverse ? -1.f : 1.f));
+      {
+        float speedRange{0.23f + (Velocity.fraction() * 0.77f)};
+        float speedAdjusted{powf(speedRange, 1.5)};
+        _speed = speedAdjusted * rotationMax;
+        Steppers[Stepper::Bow].rotate(_speed * (reverse ? -1.f : 1.f));
+      }
 
       float pressureRange{Config.bow.max - Config.bow.min};
       float pressure{Config.bow.min + (Velocity.fraction() * pressureRange * pressureMax)};
@@ -378,7 +380,7 @@ namespace {
       if (pressureLimit < 0.9f)
         pressure *= pressureLimit;
 
-      Steppers[Stepper::BowPressure].setPosition(pressure / 8.f * 200.f, 0.5);
+      Steppers[Stepper::BowPressure].setPosition(pressure / 8.f * 200.f, 0.25);
     }
 
     auto loop() {
