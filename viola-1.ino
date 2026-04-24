@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 46, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 47, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -352,7 +352,7 @@ namespace {
 
       if (!Velocity) {
         _usec = V2Base::getUsec();
-        Steppers[Stepper::BowPressure].setPosition(0, 0.5);
+        Steppers[Stepper::BowPressure].setPosition(0);
         return;
 
       } else {
@@ -380,7 +380,7 @@ namespace {
       if (pressureLimit < 0.9f)
         pressure *= pressureLimit;
 
-      Steppers[Stepper::BowPressure].setPosition(pressure / 8.f * 200.f, 0.25);
+      Steppers[Stepper::BowPressure].setPosition(pressure / 8.f * 200.f, 0.5);
     }
 
     auto loop() {
