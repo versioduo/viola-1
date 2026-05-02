@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 49, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 50, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -318,8 +318,7 @@ namespace {
     float pressureMax{1};
     float pressureSpeedMax{1};
     float rotationMax{1};
-    float turn{};
-    float press{};
+    bool  turn{};
     bool  reverse{};
     bool  hold{};
 
@@ -328,8 +327,7 @@ namespace {
       pressureMax      = 1;
       pressureSpeedMax = 1;
       rotationMax      = 1;
-      turn             = 0;
-      press            = 0;
+      turn             = false;
       reverse          = false;
       hold             = false;
 
@@ -348,12 +346,9 @@ namespace {
       if (!Home.isBow())
         return;
 
-      if (turn > 0.f || press > 0.f) {
+      if (turn) {
         Velocity.reset();
-        Steppers[Stepper::Bow].rotate(reverse ? -turn : turn);
-        float pressureRange{Config.bow.max - Config.bow.min};
-        float pressure{Config.bow.min + (press * pressureRange * pressureMax)};
-        Steppers[Stepper::Pressure].setPosition(pressure / 8.f * 200.f);
+        Steppers[Stepper::Bow].rotate(reverse ? -1.f : 1.f);
         return;
       }
 
@@ -505,7 +500,6 @@ namespace {
           }
           target += targetTwoNotes * pitchbend;
         }
-
         {
           // Adjust the pitch depending on the velocity. The increased bow pressure of higher velocities
           // result in higher pitches, because the tension of the string increases.
@@ -640,7 +634,6 @@ namespace {
       BowRelease     = V2MIDI::CC::SoundController6,
       Reverse        = V2MIDI::CC::Controller14,
       Turn           = V2MIDI::CC::Controller15,
-      Press          = V2MIDI::CC::SoundController1,
     };
 
     auto allNotesOff(bool home = false) {
@@ -708,6 +701,13 @@ namespace {
     auto tune(uint8_t note) {
       allNotesOff();
       play(note, 80);
+    }
+
+    // Turn bow to apply rosin.
+    auto turn() {
+      allNotesOff();
+      Bow.turn = true;
+      Bow.update();
     }
 
   private:
@@ -849,13 +849,10 @@ namespace {
           break;
 
         case uint8_t(CC::Turn):
-          Bow.turn = (float)value / 127.f;
-          Bow.update();
-          break;
-
-        case uint8_t(CC::Press):
-          Bow.press = (float)value / 127.f;
-          Bow.update();
+          if (value > 63)
+            turn();
+          else
+            allNotesOff();
           break;
 
         case V2MIDI::CC::AllSoundOff:
@@ -963,14 +960,9 @@ namespace {
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Turn";
+        jsonController["type"]    = "toggle";
         jsonController["number"]  = uint8_t(CC::Turn);
-        jsonController["value"]   = uint8_t(Bow.turn * 127.f);
-      }
-      {
-        JsonObject jsonController = jsonControllers.add<JsonObject>();
-        jsonController["name"]    = "Press";
-        jsonController["number"]  = uint8_t(CC::Press);
-        jsonController["value"]   = uint8_t(Bow.press * 127.f);
+        jsonController["value"]   = uint8_t(Bow.turn ? 127 : 0);
       }
     }
 
@@ -1419,10 +1411,7 @@ namespace {
 
         case 4:
           Manual.setMode(Manual::Mode::Turn);
-          Device.allNotesOff();
-          Bow.stop();
-          Bow.turn = 1;
-          Bow.update();
+          Device.turn();
           break;
       }
     }
