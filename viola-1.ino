@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 48, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 49, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -69,7 +69,7 @@ namespace {
 
   class Stepper : public V2Stepper::Motor {
   public:
-    enum { Bow, BowPressure, Finger, FingerPressure };
+    enum { Bow, Pressure, Finger, FingerPressure };
 
     constexpr Stepper(const Motor::Config conf, uint8_t index) :
       Motor(conf, &Timer, &SPI, PIN_DRIVER_SELECT + index, PIN_DRIVER_STEP + index),
@@ -109,7 +109,7 @@ namespace {
         .home{.speed{500}, .stall{0.04}},
         .speed{.min{5}, .max{3000}, .accel{6000}},
       },
-      Stepper::BowPressure),
+      Stepper::Pressure),
     Stepper(
       {
         .ampere{0.7},
@@ -183,8 +183,8 @@ namespace {
     struct {
       // Offsets in millimeters.
       float home{6};
-      float min{10};
-      float max{28};
+      float min{8};
+      float max{16};
     } bow;
 
     struct {
@@ -318,8 +318,9 @@ namespace {
     float pressureMax{1};
     float pressureSpeedMax{1};
     float rotationMax{1};
+    float turn{};
+    float press{};
     bool  reverse{};
-    bool  turn{};
     bool  hold{};
 
     auto stop() {
@@ -327,13 +328,14 @@ namespace {
       pressureMax      = 1;
       pressureSpeedMax = 1;
       rotationMax      = 1;
+      turn             = 0;
+      press            = 0;
       reverse          = false;
-      turn             = false;
       hold             = false;
 
       Steppers[Stepper::Bow].stop();
       if (Home)
-        Steppers[Stepper::BowPressure].setPosition(0);
+        Steppers[Stepper::Pressure].setPosition(0);
     }
 
     auto reset() {
@@ -346,15 +348,18 @@ namespace {
       if (!Home.isBow())
         return;
 
-      if (turn) {
+      if (turn > 0.f || press > 0.f) {
         Velocity.reset();
-        Steppers[Stepper::Bow].rotate(reverse ? -1.f : 1.f);
+        Steppers[Stepper::Bow].rotate(reverse ? -turn : turn);
+        float pressureRange{Config.bow.max - Config.bow.min};
+        float pressure{Config.bow.min + (press * pressureRange * pressureMax)};
+        Steppers[Stepper::Pressure].setPosition(pressure / 8.f * 200.f);
         return;
       }
 
       if (!Velocity) {
         _usec = V2Base::getUsec();
-        Steppers[Stepper::BowPressure].setPosition(0, pressureSpeedMax);
+        Steppers[Stepper::Pressure].setPosition(0, pressureSpeedMax);
         return;
 
       } else {
@@ -367,7 +372,7 @@ namespace {
       }
 
       {
-        float speedRange{0.23f + (Velocity.fraction() * 0.77f)};
+        float speedRange{0.3f + (Velocity.fraction() * 0.7f)};
         float speedAdjusted{powf(speedRange, 1.5)};
         _speed = speedAdjusted * rotationMax;
         Steppers[Stepper::Bow].rotate(_speed * (reverse ? -1.f : 1.f));
@@ -382,7 +387,7 @@ namespace {
       if (pressureLimit < 0.9f)
         pressure *= pressureLimit;
 
-      Steppers[Stepper::BowPressure].setPosition(pressure / 8.f * 200.f, 0.5f * pressureSpeedMax);
+      Steppers[Stepper::Pressure].setPosition(pressure / 8.f * 200.f, 0.5f * pressureSpeedMax);
     }
 
     auto loop() {
@@ -404,8 +409,8 @@ namespace {
     auto home() {
       Home.setBow(false);
       Steppers[Stepper::Bow].freewheel();
-      Steppers[Stepper::BowPressure].home(1000, 8 + (Config.bow.home / 8.f * 200.f), []() { Home.setBow(true); });
-      Steppers[Stepper::BowPressure].hold();
+      Steppers[Stepper::Pressure].home(1000, 8 + (Config.bow.home / 8.f * 200.f), []() { Home.setBow(true); });
+      Steppers[Stepper::Pressure].hold();
     }
 
   private:
@@ -500,21 +505,15 @@ namespace {
           }
           target += targetTwoNotes * pitchbend;
         }
+
         {
           // Adjust the pitch depending on the velocity. The increased bow pressure of higher velocities
           // result in higher pitches, because the tension of the string increases.
-          //
-          // Velocity ~80 (0.6) is the center / tuned velocity, because the open string cannot be corrected.
-          // 0   -0.2
-          // 0.4 -0.15
-          // 0.6  0
-          // 0.8  0.8
-          // 1    1
-          float adjustVelocity{(1.3f * powf(Velocity.fraction(), 3.5)) - 0.3f};
+          float adjustVelocity{(1.f * powf(Velocity.fraction(), 2)) - 0.25f};
 
-          // The adjustment is between 30 and 55 cent, depending on the pitch / actual string length.
+          // The adjustment is between 10 and 30 cent, depending on the pitch / actual string length.
           float notePositionFraction{float(noteIndex) / (notesMax - 1)};
-          float adjustPitchFraction{0.3f + (0.25f * (1.f - notePositionFraction))};
+          float adjustPitchFraction{0.1f + (0.2f * (1.f - notePositionFraction))};
 
           float oneNoteSteps{getNotePosition(noteIndex + 1) - getNotePosition(noteIndex)};
           target -= adjustVelocity * adjustPitchFraction * oneNoteSteps;
@@ -625,22 +624,23 @@ namespace {
       usb.pid            = 0xe9a0;
       usb.ports.standard = 8;
 
-      configuration = {.size{sizeof(Config)}, .data{&Config}};
+      configuration = {.version{2}, .size{sizeof(Config)}, .data{&Config}};
     }
 
     enum class CC {
-      Volume           = V2MIDI::CC::ChannelVolume,
-      VibratoRate      = V2MIDI::CC::SoundController7,
-      VibratoDepth     = V2MIDI::CC::SoundController8,
-      FingerSpeed      = V2MIDI::CC::Controller3,
-      FingerPressure   = V2MIDI::CC::Controller9,
-      FingerPosition   = V2MIDI::CC::Controller85,
-      BowSpeed         = V2MIDI::CC::ModulationWheel,
-      BowPressure      = V2MIDI::CC::SoundController5,
-      BowPressureSpeed = V2MIDI::CC::SoundController10,
-      BowRelease       = V2MIDI::CC::SoundController6,
-      BowReverse       = V2MIDI::CC::Controller14,
-      BowTurn          = V2MIDI::CC::Controller15,
+      Volume         = V2MIDI::CC::ChannelVolume,
+      VibratoRate    = V2MIDI::CC::SoundController7,
+      VibratoDepth   = V2MIDI::CC::SoundController8,
+      FingerSpeed    = V2MIDI::CC::Controller3,
+      FingerPressure = V2MIDI::CC::Controller9,
+      FingerPosition = V2MIDI::CC::Controller85,
+      BowSpeed       = V2MIDI::CC::ModulationWheel,
+      Pressure       = V2MIDI::CC::SoundController5,
+      PressureSpeed  = V2MIDI::CC::SoundController10,
+      BowRelease     = V2MIDI::CC::SoundController6,
+      Reverse        = V2MIDI::CC::Controller14,
+      Turn           = V2MIDI::CC::Controller15,
+      Press          = V2MIDI::CC::SoundController1,
     };
 
     auto allNotesOff(bool home = false) {
@@ -708,13 +708,6 @@ namespace {
     auto tune(uint8_t note) {
       allNotesOff();
       play(note, 80);
-    }
-
-    // Turn bow to apply rosin.
-    auto turn() {
-      allNotesOff();
-      Bow.turn = true;
-      Bow.update();
     }
 
   private:
@@ -836,12 +829,12 @@ namespace {
           Bow.update();
           break;
 
-        case uint8_t(CC::BowPressure):
+        case uint8_t(CC::Pressure):
           Bow.pressureMax = (float)(value + 1) / 128.f;
           Bow.update();
           break;
 
-        case uint8_t(CC::BowPressureSpeed):
+        case uint8_t(CC::PressureSpeed):
           Bow.pressureSpeedMax = (float)(value + 1) / 128.f;
           Bow.update();
           break;
@@ -850,16 +843,19 @@ namespace {
           Bow.release = (float)(value + 1) / 128.f;
           break;
 
-        case uint8_t(CC::BowReverse):
+        case uint8_t(CC::Reverse):
           Bow.reverse = value > 63;
           Bow.update();
           break;
 
-        case uint8_t(CC::BowTurn):
-          if (value > 63)
-            turn();
-          else
-            allNotesOff();
+        case uint8_t(CC::Turn):
+          Bow.turn = (float)value / 127.f;
+          Bow.update();
+          break;
+
+        case uint8_t(CC::Press):
+          Bow.press = (float)value / 127.f;
+          Bow.update();
           break;
 
         case V2MIDI::CC::AllSoundOff:
@@ -942,13 +938,13 @@ namespace {
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Pressure";
-        jsonController["number"]  = uint8_t(CC::BowPressure);
+        jsonController["number"]  = uint8_t(CC::Pressure);
         jsonController["value"]   = uint8_t(Bow.pressureMax * 127.f);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Pressure Speed";
-        jsonController["number"]  = uint8_t(CC::BowPressureSpeed);
+        jsonController["number"]  = uint8_t(CC::PressureSpeed);
         jsonController["value"]   = uint8_t(Bow.pressureSpeedMax * 127.f);
       }
       {
@@ -961,15 +957,20 @@ namespace {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Reverse";
         jsonController["type"]    = "toggle";
-        jsonController["number"]  = uint8_t(CC::BowReverse);
+        jsonController["number"]  = uint8_t(CC::Reverse);
         jsonController["value"]   = uint8_t(Bow.reverse ? 127 : 0);
       }
       {
         JsonObject jsonController = jsonControllers.add<JsonObject>();
         jsonController["name"]    = "Turn";
-        jsonController["type"]    = "toggle";
-        jsonController["number"]  = uint8_t(CC::BowTurn);
-        jsonController["value"]   = uint8_t(Bow.turn ? 127 : 0);
+        jsonController["number"]  = uint8_t(CC::Turn);
+        jsonController["value"]   = uint8_t(Bow.turn * 127.f);
+      }
+      {
+        JsonObject jsonController = jsonControllers.add<JsonObject>();
+        jsonController["name"]    = "Press";
+        jsonController["number"]  = uint8_t(CC::Press);
+        jsonController["value"]   = uint8_t(Bow.press * 127.f);
       }
     }
 
@@ -1190,9 +1191,12 @@ namespace {
         jsonPower["interruptions"] = Power.getInterruptions();
       }
       {
-        JsonObject jsonBow        = json["bow"].to<JsonObject>();
-        JsonObject jsonPressure   = jsonBow["pressure"].to<JsonObject>();
-        jsonPressure["posititon"] = serialized(String(Steppers[Stepper::BowPressure].getPosition() / 200.f * 8.f, 1));
+        JsonObject jsonBow = json["bow"].to<JsonObject>();
+        {
+          auto j{jsonBow["pressure"].to<JsonObject>()};
+          j["posititon"] = serialized(String(Steppers[Stepper::Pressure].getPosition() / 200.f * 8.f, 1));
+        }
+        jsonBow["speed"] = serialized(String(Steppers[Stepper::Pressure].getSpeed()));
       }
       {
         JsonObject jsonFinger   = json["finger"].to<JsonObject>();
@@ -1410,12 +1414,15 @@ namespace {
 
         case 3:
           Manual.setMode(Manual::Mode::Tune);
-          Device.tune(Config.notes.start + Config.notes.count - 1);
+          Device.tune(Config.notes.start + (Config.notes.count - 1) / 2);
           break;
 
         case 4:
           Manual.setMode(Manual::Mode::Turn);
-          Device.turn();
+          Device.allNotesOff();
+          Bow.stop();
+          Bow.turn = 1;
+          Bow.update();
           break;
       }
     }
