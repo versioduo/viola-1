@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 53, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 54, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -115,7 +115,7 @@ namespace {
         .ampere{0.7},
         .microstepsShift{4},
         .home{.speed{750}, .stall{0.04}},
-        .speed{.min{50}, .max{2400}, .accel{16000}},
+        .speed{.min{50}, .max{2400}, .accel{12000}},
       },
       Stepper::Finger),
     Stepper(
