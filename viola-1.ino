@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 56, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 57, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -616,7 +616,7 @@ namespace {
 
       // https://github.com/versioduo/arduino-board-package/blob/main/boards.txt
       usb.pid            = 0xe9a0;
-      usb.ports.standard = 8;
+      usb.ports.standard = 16;
 
       configuration = {.version{2}, .size{sizeof(Config)}, .data{&Config}};
     }
