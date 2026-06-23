@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 58, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 59, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -1206,15 +1206,16 @@ namespace {
   class MIDI {
   public:
     auto loop() {
-      if (!Device.usb.midi.receive(&_midi))
+      if (!Device.usb.midi.receive(_midi))
         return;
 
-      if (_midi.getPort() == 0) {
+      if (_midi.port == 0) {
         Device.dispatch(&Device.usb.midi, &_midi);
 
       } else {
-        _midi.setPort(_midi.getPort() - 1);
-        Socket.send(&_midi);
+        V2Link::Packet p(_midi.port - 1, _midi);
+        p.midi.port = 0;
+        Socket.send(p);
       }
     }
 
@@ -1230,28 +1231,17 @@ namespace {
     }
 
   private:
-    V2MIDI::Packet _midi{};
-
     // Receive a host event from our parent device
-    auto receivePlug(V2Link::Packet* packet) -> void override {
-      if (packet->getType() == V2Link::Packet::Type::MIDI) {
-        packet->copyTo(_midi);
-        Device.dispatch(&Plug, &_midi);
-      }
+    auto receivePlug(V2Link::Packet& p) -> void override {
+      if (p.type == V2Link::Packet::Type::MIDI)
+        Device.dispatch(&Plug, &p.midi);
     }
 
     // Forward children device events to the host
-    auto receiveSocket(V2Link::Packet* packet) -> void override {
-      if (packet->getType() == V2Link::Packet::Type::MIDI) {
-        uint8_t address = packet->getAddress();
-        if (address == 0x0f)
-          return;
-
-        if (Device.usb.midi.connected()) {
-          packet->copyTo(_midi);
-          _midi.setPort(address + 1);
-          Device.usb.midi.send(&_midi);
-        }
+    auto receiveSocket(V2Link::Packet& p) -> void override {
+      if (p.type == V2Link::Packet::Type::MIDI) {
+        p.midi.port = p.address;
+        Device.usb.midi.send(p.midi);
       }
     }
   } Link;
@@ -1261,16 +1251,17 @@ namespace {
     constexpr MIDIFile() : V2MIDI::File::Tracks(MIDISong) {}
 
   private:
-    auto handleSend(uint16_t track, V2MIDI::Packet* packet) -> bool override {
+    auto handleSend(uint16_t track, V2MIDI::Packet* midi) -> bool override {
       switch (track) {
         case 1:
-          Device.dispatch(&Device.usb.midi, packet);
+          Device.dispatch(&Device.usb.midi, midi);
           break;
 
-        case 2 ... 8:
-          packet->setPort(track - 2);
-          Socket.send(packet);
+        case 2 ... 8: {
+          V2Link::Packet p(track - 2, *midi);
+          Socket.send(p);
           break;
+        }
       }
 
       return true;
@@ -1282,9 +1273,8 @@ namespace {
           Device.allNotesOff();
           for (uint8_t i = 0; i < 8; i++) {
             V2MIDI::Packet midi;
-
-            midi.setPort(i);
-            Socket.send(midi.setControlChange(0, V2MIDI::CC::AllNotesOff, 0));
+            midi.setControlChange(0, V2MIDI::CC::AllNotesOff, 0);
+            Socket.send(V2Link::Packet(i, midi));
           }
           break;
       }
