@@ -9,7 +9,7 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 60, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 62, "versioduo:samd:step");
 
 namespace {
   constexpr uint8_t       notesMax{20};
@@ -969,9 +969,13 @@ namespace {
     auto exportSettings(JsonArray json) -> void override {
       {
         JsonObject setting = json.add<JsonObject>();
-        setting["type"]    = "note";
+        setting["type"]    = "title";
         setting["title"]   = "Notes";
-        setting["label"]   = "Start";
+      }
+      {
+        JsonObject setting = json.add<JsonObject>();
+        setting["type"]    = "note";
+        setting["label"]   = "Note";
         setting["default"] = ConfigurationDefault.notes.start;
         setting["path"]    = "notes/start";
       }
@@ -979,6 +983,7 @@ namespace {
         JsonObject setting = json.add<JsonObject>();
         setting["type"]    = "number";
         setting["label"]   = "Count";
+        setting["text"]    = "Semitones";
         setting["min"]     = 1;
         setting["max"]     = notesMax;
         setting["default"] = ConfigurationDefault.notes.count;
@@ -987,10 +992,14 @@ namespace {
 
       {
         JsonObject setting = json.add<JsonObject>();
-        setting["type"]    = "number";
-
+        setting["type"]    = "title";
         setting["title"]   = "Bow";
+      }
+      {
+        JsonObject setting = json.add<JsonObject>();
+        setting["type"]    = "number";
         setting["label"]   = "Home";
+        setting["text"]    = "Millimeter";
         setting["min"]     = 0;
         setting["max"]     = 50;
         setting["step"]    = 0.5;
@@ -1000,8 +1009,8 @@ namespace {
       {
         JsonObject setting = json.add<JsonObject>();
         setting["type"]    = "number";
-
         setting["label"]   = "Minimum";
+        setting["text"]    = "Millimeter";
         setting["min"]     = 0;
         setting["max"]     = 50;
         setting["step"]    = 0.5;
@@ -1011,8 +1020,8 @@ namespace {
       {
         JsonObject setting = json.add<JsonObject>();
         setting["type"]    = "number";
-
         setting["label"]   = "Maximum";
+        setting["text"]    = "Millimeter";
         setting["min"]     = 0;
         setting["max"]     = 50;
         setting["step"]    = 0.5;
@@ -1022,10 +1031,15 @@ namespace {
 
       {
         JsonObject setting = json.add<JsonObject>();
+        setting["type"]    = "title";
+        setting["title"]   = "String";
+      }
+      {
+        JsonObject setting = json.add<JsonObject>();
         setting["type"]    = "number";
 
-        setting["title"]   = "String";
         setting["label"]   = "Length";
+        setting["text"]    = "Millimeter";
         setting["min"]     = 1;
         setting["max"]     = 2000;
         setting["default"] = ConfigurationDefault.string.length;
@@ -1034,8 +1048,8 @@ namespace {
       {
         JsonObject setting = json.add<JsonObject>();
         setting["type"]    = "number";
-
         setting["label"]   = "Home";
+        setting["text"]    = "Millimeter";
         setting["min"]     = 0;
         setting["max"]     = 50;
         setting["step"]    = 0.5;
@@ -1045,10 +1059,14 @@ namespace {
 
       {
         JsonObject setting = json.add<JsonObject>();
-        setting["type"]    = "number";
-
+        setting["type"]    = "title";
         setting["title"]   = "Finger";
+      }
+      {
+        JsonObject setting = json.add<JsonObject>();
+        setting["type"]    = "number";
         setting["label"]   = "Pressure";
+        setting["text"]    = "Steps";
         setting["max"]     = 20;
         setting["default"] = ConfigurationDefault.finger.pressure;
         setting["path"]    = "finger/pressure";
