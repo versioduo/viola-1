@@ -9,16 +9,16 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 62, "versioduo:samd:step");
+V2DEVICE_METADATA("com.versioduo.viola-1", 63, "versioduo:samd:step");
 
 namespace {
-  constexpr uint8_t       notesMax{20};
-  constexpr uint8_t       nSteppers{4};
-  V2LED::WS2812           LED(nSteppers + 2, PIN_LED_WS2812, &sercom2, SPI_PAD_0_SCK_1, PIO_SERCOM);
-  V2Link::Port            Plug(&SerialPlug, PIN_SERIAL_PLUG_TX_ENABLE);
-  V2Link::Port            Socket(&SerialSocket, PIN_SERIAL_SOCKET_TX_ENABLE);
-  V2Base::Timer::Periodic Timer(2, 200000);
-  V2Base::Analog::ADC     ADC(V2Base::Analog::ADC::getID(PIN_VOLTAGE_SENSE));
+  constexpr uint8_t            notesMax{20};
+  constexpr uint8_t            nSteppers{4};
+  V2LED::WS2812<nSteppers + 2> LED(PIN_LED_WS2812, sercom2, SPI_PAD_0_SCK_1, PIO_SERCOM);
+  V2Link::Port                 Plug(&SerialPlug, PIN_SERIAL_PLUG_TX_ENABLE);
+  V2Link::Port                 Socket(&SerialSocket, PIN_SERIAL_SOCKET_TX_ENABLE);
+  V2Base::Timer::Periodic      Timer(2, 200000);
+  V2Base::Analog::ADC          ADC(V2Base::Analog::ADC::getID(PIN_VOLTAGE_SENSE));
 
   // The button switches the state with a multi-click long-press.
   class Manual {
@@ -34,14 +34,12 @@ namespace {
       switch (_mode) {
         case Mode::Notes:
           LED.reset();
-          LED.setHSV(nSteppers + 0, V2Colour::Orange, 1, 0.25);
-          LED.setHSV(nSteppers + 1, V2Colour::Orange, 1, 0.25);
+          LED.hsv({V2Colour::Orange, 1, 0.25}, nSteppers + 0, 2);
           break;
 
         case Mode::Song:
           LED.reset();
-          LED.setBrightness(nSteppers + 0, 0.25);
-          LED.setBrightness(nSteppers + 1, 0.25);
+          LED.brightness(0.25, nSteppers + 0, 2);
           break;
 
         case Mode::Test:
@@ -51,14 +49,12 @@ namespace {
 
         case Mode::Tune:
           LED.reset();
-          LED.setHSV(nSteppers + 0, V2Colour::Magenta, 1, 0.25);
-          LED.setHSV(nSteppers + 1, V2Colour::Magenta, 1, 0.25);
+          LED.hsv({V2Colour::Magenta, 1, 0.25}, nSteppers + 0, 2);
           break;
 
         case Mode::Turn:
           LED.reset();
-          LED.setHSV(nSteppers + 0, V2Colour::Cyan, 1, 0.25);
-          LED.setHSV(nSteppers + 1, V2Colour::Cyan, 1, 0.25);
+          LED.hsv({V2Colour::Cyan, 1, 0.25}, nSteppers + 0, 2);
           break;
       }
     }
@@ -81,15 +77,15 @@ namespace {
     auto handleMovement(Move move) -> void override {
       switch (move) {
         case Move::Forward:
-          LED.setHSV(_index, V2Colour::Cyan, 1, 0.4);
+          LED.hsv({V2Colour::Cyan, 1, 0.4}, _index);
           break;
 
         case Move::Reverse:
-          LED.setHSV(_index, V2Colour::Orange, 1, 0.4);
+          LED.hsv({V2Colour::Orange, 1, 0.4}, _index);
           break;
 
         case Move::Stop:
-          LED.setHSV(_index, V2Colour::Green, 1, 0.15);
+          LED.hsv({V2Colour::Green, 1, 0.15}, _index);
           break;
       }
     }
@@ -155,20 +151,20 @@ namespace {
     auto handleNotify(float voltage) -> void override {
       // Power interruption, or commands without a power connection show yellow LEDs.
       if (voltage < config.min) {
-        LED.splashHSV(0.5, V2Colour::Yellow, 1, 0.5);
+        LED.flash({V2Colour::Yellow, 1, 0.5}, 0.5);
         return;
       }
 
       // Over-voltage shows red LEDs.
       if (voltage > config.max) {
-        LED.splashHSV(0.5, V2Colour::Red, 1, 1);
+        LED.flash({V2Colour::Red, 1, 1}, 0.5);
         return;
       }
 
       // The number of green LEDs shows the voltage.
       float   fraction = voltage / (float)config.max;
       uint8_t n        = ceil((float)nSteppers * fraction);
-      LED.splashHSV(0.5, 0, n, V2Colour::Green, 1, 0.5);
+      LED.flash({V2Colour::Green, 1, 0.5}, 0.5, 0, n);
     }
   } Power;
 
@@ -1431,7 +1427,7 @@ auto setup() -> void {
   SPI.begin();
 
   LED.begin();
-  LED.setMaxBrightness(0.5);
+  LED.brightnessMax(0.5);
 
   Link.begin();
 
