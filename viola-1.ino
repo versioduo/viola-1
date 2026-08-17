@@ -9,11 +9,10 @@
 #include <V2PowerSupply.h>
 #include <V2Stepper.h>
 
-V2DEVICE_METADATA("com.versioduo.viola-1", 64, "versioduo:samd:step");
-
 namespace {
   constexpr uint8_t            notesMax{20};
   constexpr uint8_t            nSteppers{4};
+  V2Device::Info               Info{V2DeviceInfo("com.versioduo.viola-1", 64, "versioduo:samd:step")};
   V2LED::WS2812<nSteppers + 2> LED(PIN_LED_WS2812, sercom2, SPI_PAD_0_SCK_1, PIO_SERCOM);
   V2Link::Port                 Plug(&SerialPlug, PIN_SERIAL_PLUG_TX_ENABLE, "plug");
   V2Link::Port                 Socket(&SerialSocket, PIN_SERIAL_SOCKET_TX_ENABLE, "socket");
@@ -606,15 +605,11 @@ namespace {
       metadata.product     = "V2 viola-1";
       metadata.description = "1 String Circular Bow";
       metadata.home        = "https://versioduo.com/#viola-1";
-
-      system.download  = "https://versioduo.com/download";
-      system.configure = "https://versioduo.com/configure";
-
-      // https://github.com/versioduo/arduino-board-package/blob/main/boards.txt
-      usb.pid            = 0xe9a0;
-      usb.ports.standard = 16;
-
-      configuration = {.version{2}, .size{sizeof(Config)}, .data{&Config}};
+      system.download      = "https://versioduo.com/download";
+      system.configure     = "https://versioduo.com/configure";
+      usb.pid              = 0xe9a0; // https://github.com/versioduo/arduino-board-package/blob/main/boards.txt
+      usb.ports.standard   = 16;
+      configuration        = {.version{2}, .size{sizeof(Config)}, .data{&Config}};
     }
 
     enum class CC {
