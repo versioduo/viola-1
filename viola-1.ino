@@ -187,7 +187,7 @@ namespace {
       float length{587};
 
       // Offset in millimeters from the home position to the first note.
-      float home{1};
+      float home{2};
     } string;
 
     struct {
