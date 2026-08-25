@@ -12,7 +12,7 @@
 namespace {
   constexpr uint8_t            notesMax{20};
   constexpr uint8_t            nSteppers{4};
-  V2Device::Info               Info{V2DeviceInfo("com.versioduo.viola-1", 64, "versioduo:samd:step")};
+  V2Device::Info               Info{V2DeviceInfo("com.versioduo.viola-1", 65, "versioduo:samd:step")};
   V2LED::WS2812<nSteppers + 2> LED(PIN_LED_WS2812, sercom2, SPI_PAD_0_SCK_1, PIO_SERCOM);
   V2Link::Port                 Plug(&SerialPlug, PIN_SERIAL_PLUG_TX_ENABLE, "plug");
   V2Link::Port                 Socket(&SerialSocket, PIN_SERIAL_SOCKET_TX_ENABLE, "socket");
@@ -546,29 +546,22 @@ namespace {
     auto home() {
       Home.setFinger(false);
 
-      static const auto fingerRelease = []() {
+      static constexpr auto fingerRelease{[] {
         // Move past the detected home position to increase the finger pressure when positioning to 0.
         Steppers[Stepper::FingerPressure].initializePosition(Config.finger.pressure);
         Steppers[Stepper::FingerPressure].setPosition(60);
-
         Home.setFinger(true);
-      };
+      }};
 
-      static const auto fingerHome = []() {
-        Steppers[Stepper::FingerPressure].home(200, 0, fingerRelease);
-      };
+      static constexpr auto fingerHome{[] { Steppers[Stepper::FingerPressure].home(200, 0, fingerRelease); }};
 
-      // Move a few stepes before calling home(). We do not move any steps back after
-      // the stall detection in home(), from this position we cannot reliably detect a
-      // stall again.
-      static const auto fingerBack = []() {
-        Steppers[Stepper::FingerPressure].setPosition(32, 0.5, fingerHome);
-      };
+      // Move a few steps before calling home(). We do not move any steps back after he stall detection in home(),
+      // from this position we cannot reliably detect a stall again.
+      static constexpr auto fingerBack{[] { Steppers[Stepper::FingerPressure].setPosition(32, 0.5, fingerHome); }};
 
-      // Setup the finger after the rail has moved home; to avoid bending the screw
-      // while the finger is in the middle of it.
+      // Setup the finger after the rail has moved home; we do not want to calibrate against a screw that bends
+      // with the pressure we apply.
       Steppers[Stepper::Finger].home(10000, Config.string.home / 8.f * 200.f, fingerBack);
-
       Steppers[Stepper::Finger].hold();
       Steppers[Stepper::FingerPressure].hold();
 
