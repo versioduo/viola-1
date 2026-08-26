@@ -12,7 +12,7 @@
 namespace {
   constexpr uint8_t            notesMax{20};
   constexpr uint8_t            nSteppers{4};
-  V2Device::Info               Info{V2DeviceInfo("com.versioduo.viola-1", 65, "versioduo:samd:step")};
+  V2Device::Info               Info{V2DeviceInfo("com.versioduo.viola-1", 66, "versioduo:samd:step")};
   V2LED::WS2812<nSteppers + 2> LED(PIN_LED_WS2812, sercom2, SPI_PAD_0_SCK_1, PIO_SERCOM);
   V2Link::Port                 Plug(&SerialPlug, PIN_SERIAL_PLUG_TX_ENABLE, "plug");
   V2Link::Port                 Socket(&SerialSocket, PIN_SERIAL_SOCKET_TX_ENABLE, "socket");
@@ -601,7 +601,7 @@ namespace {
       system.download      = "https://versioduo.com/download";
       system.configure     = "https://versioduo.com/configure";
       usb.pid              = 0xe9a0; // https://github.com/versioduo/arduino-board-package/blob/main/boards.txt
-      usb.ports.standard   = 16;
+      usb.ports.standard   = 8;
       configuration        = {.version{2}, .size{sizeof(Config)}, .data{&Config}};
     }
 
